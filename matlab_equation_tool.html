@@ -356,7 +356,9 @@ function l2m(src){
   // 10. Greek juxtaposition: "delta t" -> "delta * t"
   s=s.replace(/(delta|alpha|beta|gamma|rho|mu|theta|omega|sigma|phi|lambda|pi|eta|nu|xi|tau|epsilon|zeta)\s+([a-zA-Z_][a-zA-Z0-9_]*)/g,function(m,g,r){return g+' * '+r;});
   // 11. Identifier before known function: "zsqrt(" -> "z * sqrt("
-  var kf='sqrt|sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|exp|log|log2|log10|abs|floor|ceil|asin|acos|atan|asinh|acosh|atanh|arcsin|arccos|arctan';
+  // Longer names first so "acos" isn't split into "a"+"cos"
+  var kf='sqrt|asinh|acosh|atanh|asin|acos|atan|arcsin|arccos|arctan|sinh|cosh|tanh|sin|cos|tan|cot|sec|csc|exp|log2|log10|log|abs|floor|ceil';
+  s=s.replace(new RegExp('([a-zA-Z_][a-zA-Z0-9_]*?)('+kf+')\(','g'),function(m,pre,fn){if(!pre)return m;return pre+' * '+fn+'(';});
   s=s.replace(new RegExp('([a-zA-Z_][a-zA-Z0-9_]*)('+kf+')\\(','g'),function(m,pre,fn){return pre+' * '+fn+'(';});
   // 12. Number before identifier/function: "2x" -> "2 * x", "2sqrt(" -> "2 * sqrt("
   s=s.replace(/([0-9]+\.?[0-9]*)([a-zA-Z_][a-zA-Z0-9_]*)/g,function(m,n,v){return n+' * '+v;});
