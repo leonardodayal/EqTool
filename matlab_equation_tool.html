@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MATLAB Equation Tool</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+<style>
+:root {
+  --bg:#0f1117; --bg2:#181b24; --bg3:#1e2130;
+  --border:#2a2f45; --border2:#363c58;
+  --text:#e8eaf0; --text2:#8b91a8; --text3:#555c78;
+  --accent:#4f8ef7;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding:2rem;}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;}
+.title{font-size:16px;font-weight:500;font-family:var(--mono);color:var(--text);}
+.title span{color:var(--text3);}
+.mode-bar{display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:6px 14px;}
+.mode-label{font-size:12px;font-family:var(--mono);font-weight:500;letter-spacing:0.06em;text-transform:uppercase;transition:color 0.2s;}
+.mode-label.active{color:var(--text);}
+.mode-label.inactive{color:var(--text3);}
+.flip-btn{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--accent);font-size:16px;width:32px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;user-select:none;}
+.flip-btn:hover{background:var(--border);border-color:var(--accent);}
+.flip-btn.spinning{animation:spin 0.3s ease;}
+@keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(180deg);}}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1.5rem;max-width:800px;margin:0 auto;transition:opacity 0.15s;}
+.panel.fading{opacity:0;}
+.row-label{font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:6px;margin-top:1.25rem;text-transform:uppercase;letter-spacing:0.06em;}
+.row-label:first-child{margin-top:0;}
+.examples{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem;}
+.ex-btn{font-size:11px;font-family:var(--mono);padding:3px 10px;border:1px solid var(--border2);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;transition:all 0.15s;}
+.ex-btn:hover{background:var(--bg3);color:var(--text);border-color:var(--accent);}
+textarea{width:100%;font-family:var(--mono);font-size:13px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;min-height:72px;line-height:1.6;transition:border-color 0.15s;}
+textarea:focus{outline:none;border-color:var(--accent);}
+textarea::placeholder{color:var(--text3);}
+.eq-output{padding:20px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;min-height:80px;overflow-x:auto;display:flex;align-items:center;justify-content:center;}
+.eq-ph{color:var(--text3);font-size:12px;font-family:var(--mono);}
+.eq-err{color:#f87171;font-size:12px;font-family:var(--mono);}
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;min-height:22px;}
+.legend-item{font-size:11px;font-family:var(--mono);font-weight:500;padding:2px 8px;border-radius:5px;border:1px solid;}
+.mq-wrap{border:1px solid var(--border);border-radius:8px;background:var(--bg3);padding:12px 14px;min-height:52px;cursor:text;display:flex;align-items:center;transition:border-color 0.15s;}
+.mq-wrap:focus-within{border-color:var(--accent);}
+.mq-editable-field{width:100%;background:transparent!important;border:none!important;box-shadow:none!important;font-size:1.2em;}
+.mq-editable-field .mq-cursor{border-color:var(--text)!important;}
+.mq-math-mode,.mq-math-mode .mq-root-block,.mq-math-mode *{color:var(--text);}
+.mq-math-mode .mq-fraction .mq-numerator,
+.mq-math-mode .mq-fraction .mq-denominator{border-color:var(--text2)!important;}
+.mq-selection{background:rgba(79,142,247,0.2)!important;}
+.hint{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:8px;line-height:1.8;}
+.hint code{background:var(--bg);padding:1px 5px;border-radius:4px;color:var(--text2);font-size:11px;}
+.code-block{padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-family:var(--mono);font-size:13px;min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.code-tokens{flex:1;line-height:1.8;word-break:break-all;}
+.copy-btn{flex-shrink:0;font-size:11px;font-family:var(--mono);padding:4px 12px;border:1px solid var(--border2);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;transition:all 0.15s;}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent);}
+.copy-btn.copied{color:#4ade80;border-color:#4ade8055;}
+.t-num{color:#f59e0b;}
+.t-func{color:#38bdf8;}
+.t-op{color:var(--text3);}
+.t-paren{color:var(--text3);}
+.t-ambig{color:#fb923c;font-weight:500;border-bottom:1.5px dashed #fb923c88;cursor:pointer;}
+.t-ambig:hover{color:#fdba74;}
+.t-merge{color:#4ade80;font-weight:500;border-bottom:1.5px solid #4ade8044;cursor:pointer;}
+.t-keep{color:var(--text2);cursor:pointer;border-bottom:1.5px solid #ffffff11;}
+.warn-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:5px;background:#fb923c18;border:1px solid #fb923c44;color:#fb923c;margin-left:8px;vertical-align:middle;}
+.warn-badge.hidden{display:none;}
+.ambig-hint{font-size:11px;font-family:var(--mono);color:#fb923c77;margin-top:6px;}
+.ambig-hint.hidden{display:none;}
+.mode-section{display:none;}
+.mode-section.active{display:block;}
+.katex{color:var(--text)!important;font-size:1.3em!important;}
+.katex-display{margin:0!important;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">matlab_equation_tool <span>v2</span></div>
+  <div class="mode-bar">
+    <div class="mode-label active" id="lbl-left">MATLAB</div>
+    <div class="flip-btn" id="flip-btn" onclick="flipMode()" title="Flip direction">&#8644;</div>
+    <div class="mode-label inactive" id="lbl-right">Symbolic</div>
+  </div>
+</header>
+
+<div class="panel" id="main-panel">
+  <!-- Mode A: MATLAB → Symbolic -->
+  <div class="mode-section active" id="mode-m2s">
+    <div class="examples">
+      <button class="ex-btn" onclick="loadEx1(0)">demo</button>
+    </div>
+    <div class="row-label">matlab code</div>
+    <textarea id="m2s-input" placeholder="e.g. rho * u^2 / (2*delta_t) + sqrt(p_ref)" oninput="renderM2S()" spellcheck="false"></textarea>
+    <div class="row-label">symbolic view</div>
+    <div class="eq-output" id="m2s-output"><span class="eq-ph">rendered equation appears here</span></div>
+    <div class="legend" id="m2s-legend"></div>
+  </div>
+
+  <!-- Mode B: Symbolic → MATLAB -->
+  <div class="mode-section" id="mode-s2m">
+    <div class="examples">
+      <button class="ex-btn" onclick="loadEx2(0)">demo</button>
+    </div>
+    <div class="row-label">equation editor</div>
+    <div class="mq-wrap" id="mq-wrap"><span id="mq-field"></span></div>
+    <div class="hint">
+      <code>/</code> fraction &nbsp;&middot;&nbsp;
+      <code>^</code> power &nbsp;&middot;&nbsp;
+      <code>\sqrt</code> radical &nbsp;&middot;&nbsp;
+      <code>\rho</code> <code>\theta</code> <code>\Delta</code> greek &nbsp;&middot;&nbsp;
+      arrow keys navigate slots
+    </div>
+    <div class="row-label">
+      matlab code
+      <span class="warn-badge hidden" id="warn-badge">&#9888; <span id="warn-count">0</span> ambiguous</span>
+    </div>
+    <div class="code-block">
+      <span class="code-tokens" id="s2m-tokens"><span class="eq-ph">output appears here</span></span>
+      <button class="copy-btn" id="copy-btn" onclick="copyCode()">copy</button>
+    </div>
+    <div class="ambig-hint hidden" id="ambig-hint">click orange tokens to resolve &mdash; cycle: ambiguous &rarr; merge as subscript &rarr; keep as multiply</div>
+  </div>
+</div>
+
+<script>
+/* ── Colors ── */
+const VAR_COLORS=[['#4f8ef7','#1a2a4a'],['#34d399','#0d3326'],['#f87171','#3b1515'],['#c084fc','#2d1645'],['#fb923c','#3d1d08'],['#22d3ee','#0a2f38'],['#f472b6','#3b0f2a'],['#facc15','#3b2e05'],['#a3e635','#1e2e05'],['#818cf8','#1a1f45']];
+let varColorMap={},colorIdx=0;
+function resetColors(){varColorMap={};colorIdx=0;}
+function getVarColor(n){if(!(n in varColorMap))varColorMap[n]=VAR_COLORS[colorIdx++%VAR_COLORS.length];return varColorMap[n];}
+
+const TRIG_POW=new Set(['sin','cos','tan','cot','sec','csc','sinh','cosh','tanh']);
+const TRIG_INV={acos:'\\cos^{-1}',asin:'\\sin^{-1}',atan:'\\tan^{-1}',acot:'\\cot^{-1}',asec:'\\sec^{-1}',acsc:'\\csc^{-1}',asinh:'\\sinh^{-1}',acosh:'\\cosh^{-1}',atanh:'\\tanh^{-1}',arccos:'\\cos^{-1}',arcsin:'\\sin^{-1}',arctan:'\\tan^{-1}',arccot:'\\cot^{-1}',arcsec:'\\sec^{-1}',arccsc:'\\csc^{-1}',atan2:'\\operatorname{atan2}'};
+const KNOWN_TEX={sin:'\\sin',cos:'\\cos',tan:'\\tan',cot:'\\cot',sec:'\\sec',csc:'\\csc',sinh:'\\sinh',cosh:'\\cosh',tanh:'\\tanh',exp:'\\exp',log:'\\ln',log2:'\\log_2',log10:'\\log_{10}',abs:'\\left|#\\right|',floor:'\\lfloor#\\rfloor',ceil:'\\lceil#\\rceil'};
+const GREEK_WORDS=new Set(['delta','alpha','beta','gamma','rho','mu','theta','omega','sigma','phi','lambda','pi','eta','nu','xi','tau','epsilon','zeta']);
+
+/* ── Mode switcher ── */
+let currentMode='m2s';
+function flipMode(){
+  const btn=document.getElementById('flip-btn');
+  const panel=document.getElementById('main-panel');
+  btn.classList.add('spinning');
+  panel.classList.add('fading');
+  setTimeout(function(){
+    if(currentMode==='m2s'){
+      currentMode='s2m';
+      document.getElementById('mode-m2s').classList.remove('active');
+      document.getElementById('mode-s2m').classList.add('active');
+      document.getElementById('lbl-left').textContent='Symbolic';
+      document.getElementById('lbl-right').textContent='MATLAB';
+      setTimeout(function(){if(mqField)mqField.focus();},100);
+    }else{
+      currentMode='m2s';
+      document.getElementById('mode-s2m').classList.remove('active');
+      document.getElementById('mode-m2s').classList.add('active');
+      document.getElementById('lbl-left').textContent='MATLAB';
+      document.getElementById('lbl-right').textContent='Symbolic';
+      setTimeout(function(){document.getElementById('m2s-input').focus();},100);
+    }
+    panel.classList.remove('fading');
+    btn.classList.remove('spinning');
+  },150);
+}
+
+/* ── Tokenizer ── */
+function tokenize(src){
+  const toks=[];let i=0;
+  while(i<src.length){
+    if(/\s/.test(src[i])){i++;continue;}
+    if(src[i]==='.'&&'*/^'.includes(src[i+1]||'')){toks.push({t:'op',v:src[i]+src[i+1]});i+=2;continue;}
+    if('+-*/^='.includes(src[i])){toks.push({t:'op',v:src[i]});i++;continue;}
+    if(src[i]==='('){toks.push({t:'lp',v:'('});i++;continue;}
+    if(src[i]===')'){toks.push({t:'rp',v:')'});i++;continue;}
+    if(src[i]===','){toks.push({t:'cm',v:','});i++;continue;}
+    if(/[a-zA-Z_]/.test(src[i])){
+      let j=i;while(j<src.length&&/[a-zA-Z0-9_]/.test(src[j]))j++;
+      const w=src.slice(i,j);let k=j;while(k<src.length&&src[k]===' ')k++;
+      toks.push({t:src[k]==='('?'func':'var',v:w});i=j;continue;
+    }
+    if(/[0-9.]/.test(src[i])){
+      let j=i;while(j<src.length&&/[0-9.]/.test(src[j]))j++;
+      toks.push({t:'num',v:src.slice(i,j)});i=j;continue;
+    }
+    toks.push({t:'other',v:src[i]});i++;
+  }
+  return toks;
+}
+
+/* ── Pratt parser ── */
+let _T,_P;
+const _peek=()=>_T[_P]||{t:'eof',v:''};
+const _next=()=>_T[_P++];
+function _prec(tok){
+  if(tok.t!=='op')return -1;
+  if(tok.v==='=')return 1;
+  if(tok.v==='+'||tok.v==='-')return 2;
+  if(tok.v==='*'||tok.v==='.*'||tok.v==='/'||tok.v==='./') return 3;
+  if(tok.v==='^'||tok.v==='.^')return 5;
+  return -1;
+}
+function _expr(mp){
+  let L=_unary();
+  while(true){const op=_peek(),p=_prec(op);if(p<mp)break;_next();L={t:'binop',op:op.v,left:L,right:_expr((op.v==='^'||op.v==='.^')?p:p+1)};}
+  return L;
+}
+function _unary(){
+  if(_peek().t==='op'&&_peek().v==='-'){_next();return{t:'unary',op:'-',arg:_unary()};}
+  if(_peek().t==='op'&&_peek().v==='+'){_next();return _unary();}
+  return _prim();
+}
+function _prim(){
+  const tok=_peek();
+  if(tok.t==='num'){_next();return{t:'num',v:tok.v};}
+  if(tok.t==='var'){_next();return{t:'var',v:tok.v};}
+  if(tok.t==='func'){
+    _next();_next();
+    const args=[];
+    if(_peek().t!=='rp'){args.push(_expr(0));while(_peek().t==='cm'){_next();args.push(_expr(0));}}
+    if(_peek().t==='rp')_next();
+    return{t:'func',name:tok.v,args};
+  }
+  if(tok.t==='lp'){_next();const inner=_expr(0);if(_peek().t==='rp')_next();return{t:'paren',inner};}
+  _next();return{t:'other',v:tok.v};
+}
+function parseMatlab(src){_T=tokenize(src);_P=0;return _expr(0);}
+
+/* ── AST → LaTeX ── */
+function varTex(name){
+  const[fg]=getVarColor(name);
+  const parts=name.split('_'),base=parts[0],sub=parts.slice(1).join('_');
+  return '\\textcolor{'+fg+'}{' +(sub?base+'_{\\text{'+sub+'}}':base)+ '}';
+}
+function needsP(node,pop,side){
+  if(node.t!=='binop')return false;
+  const cp=_prec({t:'op',v:node.op}),pp=_prec({t:'op',v:pop});
+  return cp<pp||(cp===pp&&side==='right'&&(pop==='/'||pop==='./'));
+}
+function astTex(node){
+  if(!node)return '';
+  if(node.t==='num')return node.v;
+  if(node.t==='var')return varTex(node.v);
+  if(node.t==='paren')return '\\left('+astTex(node.inner)+'\\right)';
+  if(node.t==='unary')return '-'+astTex(node.arg);
+  if(node.t==='other')return node.v;
+  if(node.t==='func'){
+    const n=node.name,a0=node.args[0]?astTex(node.args[0]):'',all=node.args.map(astTex).join(', ');
+    if(n==='sqrt')return '\\sqrt{'+a0+'}';
+    if(TRIG_INV[n])return TRIG_INV[n]+'\\left('+all+'\\right)';
+    if(KNOWN_TEX[n]){const t=KNOWN_TEX[n];return t.includes('#')?t.replace('#',all):t+'\\left('+all+'\\right)';}
+    return '\\operatorname{'+n+'}\\left('+all+'\\right)';
+  }
+  if(node.t==='binop'){
+    const{op,left,right}=node;
+    if((op==='^'||op==='.^')&&left.t==='func'&&TRIG_POW.has(left.name)){
+      const fn=KNOWN_TEX[left.name]||'\\operatorname{'+left.name+'}';
+      return fn+'^{'+astTex(right)+'}\\left('+left.args.map(astTex).join(', ')+'\\right)';
+    }
+    if(op==='/'||op==='./') return '\\frac{'+astTex(left)+'}{'+astTex(right)+'}';
+    if(op==='^'||op==='.^'){
+      let b=astTex(left);
+      if(left.t==='binop'||left.t==='func')b='\\left('+astTex(left)+'\\right)';
+      return b+'^{'+astTex(right)+'}';
+    }
+    if(op==='*'||op==='.*'){
+      let L=astTex(left),R=astTex(right);
+      if(needsP(left,op,'left'))L='\\left('+L+'\\right)';
+      if(needsP(right,op,'right'))R='\\left('+R+'\\right)';
+      return L+' \\cdot '+R;
+    }
+    if(op==='+'||op==='-')return astTex(left)+' '+op+' '+astTex(right);
+    if(op==='=')return astTex(left)+' = '+astTex(right);
+  }
+  return '';
+}
+
+/* ── LaTeX → MATLAB ── */
+function exBraced(s,i){
+  while(i<s.length&&s[i]===' ')i++;
+  if(s[i]!=='{')return[s[i]||'',i+1];
+  let d=0,j=i,o='';
+  while(j<s.length){
+    if(s[j]==='{'){d++;if(d>1)o+=s[j];}
+    else if(s[j]==='}'){d--;if(d===0){j++;break;}else o+=s[j];}
+    else o+=s[j];
+    j++;
+  }
+  return[o,j];
+}
+function exFrac(s){
+  let r='',i=0;
+  while(i<s.length){
+    const fi=s.indexOf('\\frac',i);
+    if(fi===-1){r+=s.slice(i);break;}
+    r+=s.slice(i,fi);i=fi+5;
+    const[num,ni]=exBraced(s,i);i=ni;
+    const[den,di]=exBraced(s,i);i=di;
+    r+='('+l2m(num)+')/('+l2m(den)+')';
+  }
+  return r;
+}
+function l2m(src){
+  let s=src.trim();
+  // 1. Remove textcolor wrappers
+  s=s.replace(/\\textcolor\{[^}]*\}\{([^}]*)\}/g,'$1');
+  // 2. Brackets
+  s=s.replace(/\\left\s*\(/g,'(').replace(/\\right\s*\)/g,')');
+  s=s.replace(/\\left\s*\[/g,'(').replace(/\\right\s*\]/g,')');
+  s=s.replace(/\\left\s*\|/g,'abs(').replace(/\\right\s*\|/g,')');
+  s=s.replace(/\\lfloor/g,'floor(').replace(/\\rfloor/g,')');
+  s=s.replace(/\\lceil/g,'ceil(').replace(/\\rceil/g,')');
+  // 3. Inverse trig BEFORE generic trig (must come first)
+  s=s.replace(/\\arccos\b/g,'acos').replace(/\\arcsin\b/g,'asin').replace(/\\arctan\b/g,'atan');
+  s=s.replace(/\\arccot\b/g,'acot').replace(/\\arcsec\b/g,'asec').replace(/\\arccsc\b/g,'acsc');
+  s=s.replace(/\\cos\^{-1}/g,'acos').replace(/\\sin\^{-1}/g,'asin').replace(/\\tan\^{-1}/g,'atan');
+  s=s.replace(/\\cot\^{-1}/g,'acot').replace(/\\sec\^{-1}/g,'asec').replace(/\\csc\^{-1}/g,'acsc');
+  s=s.replace(/\\sinh\^{-1}/g,'asinh').replace(/\\cosh\^{-1}/g,'acosh').replace(/\\tanh\^{-1}/g,'atanh');
+  // 4. Trig powers: \sin^{2} -> reorder later, but strip the braces now
+  // Convert \sin^{n}( to SIN_POW_n( placeholder to protect from other replacements
+  s=s.replace(/\\(sin|cos|tan|cot|sec|csc|sinh|cosh|tanh)\^\{([^}]+)\}\s*\\left\s*\(/g,'TRIGPOW_$1_$2_(');
+  s=s.replace(/\\(sin|cos|tan|cot|sec|csc|sinh|cosh|tanh)\^\{([^}]+)\}\s*\(/g,'TRIGPOW_$1_$2_(');
+  s=s.replace(/\\(sin|cos|tan|cot|sec|csc|sinh|cosh|tanh)\^([0-9])\s*\\left\s*\(/g,'TRIGPOW_$1_$2_(');
+  s=s.replace(/\\(sin|cos|tan|cot|sec|csc|sinh|cosh|tanh)\^([0-9])\s*\(/g,'TRIGPOW_$1_$2_(');
+  // 5. Known trig/functions
+  s=s.replace(/\\(sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|exp)\b/g,'$1');
+  s=s.replace(/\\ln\b/g,'log').replace(/\\log_2\b/g,'log2').replace(/\\log_\{10\}/g,'log10').replace(/\\log\b/g,'log');
+  s=s.replace(/\\operatorname\{a(cos|sin|tan|cot|sec|csc|sinh|cosh|tanh)\}/g,'a$1');
+  s=s.replace(/\\operatorname\{atan2\}/g,'atan2');
+  s=s.replace(/\\operatorname\{([^}]+)\}/g,'$1');
+  s=s.replace(/\\text\{([^}]+)\}/g,'$1');
+  s=s.replace(/\\mathrm\{([^}]+)\}/g,'$1');
+  // 6. Greek letters — use lookahead so \alpha_0 works
+  var greek={Delta:'delta',delta:'delta',alpha:'alpha',beta:'beta',gamma:'gamma',rho:'rho',mu:'mu',theta:'theta',omega:'omega',sigma:'sigma',phi:'phi',pi:'pi',lambda:'lambda',eta:'eta',nu:'nu',xi:'xi',tau:'tau',epsilon:'epsilon',zeta:'zeta'};
+  for(var k in greek)s=s.replace(new RegExp('\\\\'+k+'(?![a-zA-Z])','g'),greek[k]);
+  s=s.replace(/\\infty/g,'Inf');
+  s=s.replace(/\\cdot\s*/g,'*').replace(/\\times\s*/g,'*');
+  // 7. Fractions and sqrt (recursive)
+  s=exFrac(s);
+  s=s.replace(/\\sqrt\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g,function(m,inner){return 'sqrt('+l2m(inner)+')';});
+  // 8. Subscripts and superscripts
+  s=s.replace(/([a-zA-Z0-9_]+)_\{([^}]+)\}/g,'$1_$2');
+  s=s.replace(/([a-zA-Z0-9_]+)_([a-zA-Z0-9])/g,'$1_$2');
+  s=s.replace(/\^\{([^}]+)\}/g,function(m,e){return /^[a-zA-Z0-9_]+$/.test(e.trim())?'^'+e.trim():'^('+e.trim()+')';});
+  s=s.replace(/\^([a-zA-Z0-9])/g,'^$1');
+  s=s.replace(/\s+/g,' ').trim();
+  // 9. Resolve TRIGPOW placeholders: TRIGPOW_sin_2_(theta) -> sin(theta)^2
+  s=s.replace(/TRIGPOW_([a-z]+)_([^_]+)_\(([^()]*)\)/g,function(m,fn,exp,inner){return fn+'('+inner+')^'+exp;});
+  // 10. Greek juxtaposition: "delta t" -> "delta * t"
+  s=s.replace(/(delta|alpha|beta|gamma|rho|mu|theta|omega|sigma|phi|lambda|pi|eta|nu|xi|tau|epsilon|zeta)\s+([a-zA-Z_][a-zA-Z0-9_]*)/g,function(m,g,r){return g+' * '+r;});
+  // 11. Identifier before known function: "zsqrt(" -> "z * sqrt("
+  var kf='sqrt|sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|exp|log|log2|log10|abs|floor|ceil|asin|acos|atan|asinh|acosh|atanh|arcsin|arccos|arctan';
+  s=s.replace(new RegExp('([a-zA-Z_][a-zA-Z0-9_]*)('+kf+')\\(','g'),function(m,pre,fn){return pre+' * '+fn+'(';});
+  // 12. Number before identifier/function: "2x" -> "2 * x", "2sqrt(" -> "2 * sqrt("
+  s=s.replace(/([0-9]+\.?[0-9]*)([a-zA-Z_][a-zA-Z0-9_]*)/g,function(m,n,v){return n+' * '+v;});
+  return s.replace(/\s+/g,' ').trim();
+}
+
+/* ── Ambiguity detection ── */
+let ambigPairs=[],ambigRes={},currentToks=[],lastCode='';
+function findAmbig(toks){
+  const pairs=[];
+  for(let i=0;i<toks.length-2;i++){
+    const L=toks[i],op=toks[i+1],R=toks[i+2];
+    if(L.t==='var'&&GREEK_WORDS.has(L.v)&&op.t==='op'&&op.v==='*'&&R.t==='var'){
+      pairs.push({li:i,ri:i+2,lv:L.v,rv:R.v});
+    }
+  }
+  return pairs;
+}
+function buildCode(toks,pairs,res){
+  const supOp=new Set(),mergeR=new Set();
+  for(const p of pairs){
+    if((res[p.li]||'u')==='m'){supOp.add(p.li+1);mergeR.add(p.ri);}
+  }
+  const out=[];
+  for(let i=0;i<toks.length;i++){
+    if(supOp.has(i))continue;
+    if(mergeR.has(i)){out[out.length-1].v+='_'+toks[i].v;continue;}
+    out.push(Object.assign({},toks[i]));
+  }
+  return out.map(function(t){return t.t==='op'?' '+t.v+' ':t.t==='cm'?', ':t.v;}).join('').replace(/\s+/g,' ').trim();
+}
+function synHL(toks,pairs,res){
+  if(!toks.length)return '<span class="eq-ph">output appears here</span>';
+  resetColors();
+  const fL=new Map(),fR=new Map(),fO=new Map();
+  pairs.forEach(function(p,pi){fL.set(p.li,pi);fR.set(p.ri,pi);fO.set(p.li+1,pi);});
+  return toks.map(function(tok,i){
+    const isL=fL.has(i),isR=fR.has(i),isO=fO.has(i);
+    const pi=isL?fL.get(i):isR?fR.get(i):isO?fO.get(i):-1;
+    const r=pi>=0?(res[pairs[pi].li]||'u'):null;
+    if(tok.t==='var'){
+      const fg=getVarColor(tok.v)[0];
+      if((isL||isR)&&r==='u')return '<span class="t-ambig" onclick="toggleAmbig('+pi+')" title="Ambiguous: click to resolve">'+tok.v+'</span>';
+      if((isL||isR)&&r==='m')return '<span class="t-merge" onclick="toggleAmbig('+pi+')" title="Merged as subscript">'+tok.v+'</span>';
+      if((isL||isR)&&r==='k')return '<span class="t-keep" onclick="toggleAmbig('+pi+')" title="Kept as multiply">'+tok.v+'</span>';
+      return '<span style="color:'+fg+';font-weight:500">'+tok.v+'</span>';
+    }
+    if(tok.t==='func')return '<span class="t-func">'+tok.v+'</span>';
+    if(tok.t==='num') return '<span class="t-num">'+tok.v+'</span>';
+    if(tok.t==='op'){
+      if(isO&&r==='u')return '<span class="t-ambig" onclick="toggleAmbig('+pi+')"> '+tok.v+' </span>';
+      if(isO&&r==='m')return '';
+      return '<span class="t-op"> '+tok.v+' </span>';
+    }
+    if(tok.t==='lp'||tok.t==='rp')return '<span class="t-paren">'+tok.v+'</span>';
+    if(tok.t==='cm')return '<span class="t-paren">, </span>';
+    return tok.v;
+  }).join('');
+}
+function updateBadge(pairs,res){
+  const n=pairs.filter(function(p){return(res[p.li]||'u')==='u';}).length;
+  const badge=document.getElementById('warn-badge');
+  const hint=document.getElementById('ambig-hint');
+  if(n>0){badge.classList.remove('hidden');document.getElementById('warn-count').textContent=n;hint.classList.remove('hidden');}
+  else{badge.classList.add('hidden');hint.classList.add('hidden');}
+}
+function toggleAmbig(pi){
+  const p=ambigPairs[pi];
+  const cur=ambigRes[p.li]||'u';
+  ambigRes[p.li]=cur==='u'?'m':cur==='m'?'k':'u';
+  lastCode=buildCode(currentToks,ambigPairs,ambigRes);
+  document.getElementById('s2m-tokens').innerHTML=synHL(currentToks,ambigPairs,ambigRes);
+  updateBadge(ambigPairs,ambigRes);
+}
+
+/* ── Panel 1: MATLAB → Symbolic ── */
+const EX1=[
+  '(sin(theta)^2 + acos(alpha_0)) / (2 * delta_t) + sqrt(rho_ref^3)',
+];
+function loadEx1(i){document.getElementById('m2s-input').value=EX1[i];renderM2S();}
+function renderM2S(){
+  resetColors();
+  const src=document.getElementById('m2s-input').value.trim();
+  const out=document.getElementById('m2s-output');
+  const leg=document.getElementById('m2s-legend');
+  if(!src){out.innerHTML='<span class="eq-ph">rendered equation appears here</span>';leg.innerHTML='';return;}
+  try{
+    const latex=astTex(parseMatlab(src));
+    katex.render(latex,out,{throwOnError:false,displayMode:true,trust:true,strict:false});
+  }catch(e){out.innerHTML='<span class="eq-err">parse error: '+e.message+'</span>';leg.innerHTML='';return;}
+  leg.innerHTML=Object.entries(varColorMap).map(function(e){
+    var n=e[0],c=e[1];return '<div class="legend-item" style="color:'+c[0]+';background:'+c[1]+'22;border-color:'+c[0]+'55">'+n+'</div>';
+  }).join('');
+}
+
+/* ── Panel 2: Symbolic → MATLAB ── */
+const EX2=[
+  '\\frac{\\sin^2\\left(\\theta\\right)+\\cos^{-1}\\left(\\alpha_0\\right)}{2\\cdot\\Delta t}+\\sqrt{\\rho_{ref}^3}',
+];
+let mqField=null;
+function renderS2M(latex){
+  const el=document.getElementById('s2m-tokens');
+  if(!latex||!latex.trim()){
+    el.innerHTML='<span class="eq-ph">output appears here</span>';
+    lastCode='';ambigPairs=[];ambigRes={};
+    document.getElementById('warn-badge').classList.add('hidden');
+    document.getElementById('ambig-hint').classList.add('hidden');
+    return;
+  }
+  try{
+    const raw=l2m(latex);
+    currentToks=tokenize(raw);
+    ambigPairs=findAmbig(currentToks);
+    ambigRes={};
+    lastCode=buildCode(currentToks,ambigPairs,ambigRes);
+    el.innerHTML=synHL(currentToks,ambigPairs,ambigRes);
+    updateBadge(ambigPairs,ambigRes);
+  }catch(e){
+    el.innerHTML='<span class="eq-err">'+e.message+'</span>';
+  }
+}
+function loadEx2(i){if(mqField){mqField.latex(EX2[i]);renderS2M(EX2[i]);}}
+function copyCode(){
+  if(!lastCode)return;
+  navigator.clipboard.writeText(lastCode).then(function(){
+    const btn=document.getElementById('copy-btn');
+    btn.textContent='copied!';btn.classList.add('copied');
+    setTimeout(function(){btn.textContent='copy';btn.classList.remove('copied');},1500);
+  });
+}
+window.addEventListener('load',function(){
+  const MQ=MathQuill.getInterface(2);
+  mqField=MQ.MathField(document.getElementById('mq-field'),{
+    spaceBehavesLikeTab:true,
+    handlers:{edit:function(){renderS2M(mqField.latex());}}
+  });
+  document.getElementById('mq-wrap').addEventListener('click',function(){mqField.focus();});
+  loadEx1(0);
+});
+</script>
+</body>
+</html>

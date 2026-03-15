@@ -1,0 +1,13 @@
+# Bundled file — generated automatically on first run, not needed in repo
+matlab_equation_tool_bundled.html
+
+# MATLAB packaging output
+*.mltbx
+*.prj
+
+# macOS
+.DS_Store
+
+# MATLAB
+*.asv
+*.m~
