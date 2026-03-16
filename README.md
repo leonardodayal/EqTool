@@ -2,7 +2,7 @@
 
 A bidirectional equation tool that runs inside MATLAB. Paste MATLAB code to see it rendered as symbolic math, or type equations in a live editor to generate valid MATLAB code.
 
-![EqTool demo](screenshot.png)
+![EqTool screenshot](screenshot.png)
 
 ## Features
 
@@ -14,7 +14,7 @@ A bidirectional equation tool that runs inside MATLAB. Paste MATLAB code to see 
 
 ## Requirements
 
-- MATLAB R2020b or later
+- MATLAB R2022b or later
 - Internet connection on first launch only
 
 ## Installation
@@ -71,7 +71,7 @@ cd('/path/to/EqTool')
 EqTool_package()
 ```
 
-Requires MATLAB R2023a or later to package. The tool itself runs on R2020b+.
+Requires MATLAB R2023a or later to package. The tool itself runs on R2022b+.
 
 ## License
 
