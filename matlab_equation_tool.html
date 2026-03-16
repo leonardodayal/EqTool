@@ -43,7 +43,7 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
 textarea{width:100%;font-family:var(--mono);font-size:13px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;min-height:72px;line-height:1.6;transition:border-color 0.15s;}
 textarea:focus{outline:none;border-color:var(--accent);}
 textarea::placeholder{color:var(--text3);}
-.eq-output{padding:20px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;min-height:80px;overflow-x:auto;display:flex;align-items:center;justify-content:center;}
+.eq-output{padding:20px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;min-height:80px;max-height:300px;overflow:auto;display:block;}
 .eq-ph{color:var(--text3);font-size:12px;font-family:var(--mono);}
 .eq-err{color:#f87171;font-size:12px;font-family:var(--mono);}
 .legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;min-height:22px;}
@@ -63,6 +63,9 @@ textarea::placeholder{color:var(--text3);}
 .copy-btn{flex-shrink:0;font-size:11px;font-family:var(--mono);padding:4px 12px;border:1px solid var(--border2);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;transition:all 0.15s;}
 .copy-btn:hover{border-color:var(--accent);color:var(--accent);}
 .copy-btn.copied{color:#4ade80;border-color:#4ade8055;}
+.vec-btn{flex-shrink:0;font-size:11px;font-family:var(--mono);padding:4px 12px;border:1px solid var(--border2);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;transition:all 0.15s;}
+.vec-btn:hover{border-color:var(--accent);color:var(--accent);}
+.vec-btn.active{color:#4ade80;border-color:#4ade8055;background:#4ade8011;}
 .t-num{color:#f59e0b;}
 .t-func{color:#38bdf8;}
 .t-op{color:var(--text3);}
@@ -75,6 +78,11 @@ textarea::placeholder{color:var(--text3);}
 .warn-badge.hidden{display:none;}
 .ambig-hint{font-size:11px;font-family:var(--mono);color:#fb923c77;margin-top:6px;}
 .ambig-hint.hidden{display:none;}
+.sym-copy-btn{font-size:11px;font-family:var(--mono);padding:4px 12px;border:1px solid var(--border2);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;transition:all 0.15s;}
+.sym-copy-btn:hover{border-color:var(--accent);color:var(--accent);}
+.sym-copy-btn.copied{color:#4ade80;border-color:#4ade8055;}
+.eq-output-wrap{display:flex;flex-direction:column;gap:0;}
+.sym-copy-row{display:flex;justify-content:flex-end;margin-top:6px;}
 .mode-section{display:none;}
 .mode-section.active{display:block;}
 .katex{color:var(--text)!important;font-size:1.3em!important;}
@@ -101,7 +109,12 @@ textarea::placeholder{color:var(--text3);}
     <div class="row-label">matlab code</div>
     <textarea id="m2s-input" placeholder="e.g. rho * u^2 / (2*delta_t) + sqrt(p_ref)" oninput="renderM2S()" spellcheck="false"></textarea>
     <div class="row-label">symbolic view</div>
-    <div class="eq-output" id="m2s-output"><span class="eq-ph">rendered equation appears here</span></div>
+    <div class="eq-output-wrap">
+      <div class="eq-output" id="m2s-output"><span class="eq-ph">rendered equation appears here</span></div>
+      <div class="sym-copy-row">
+        <button class="sym-copy-btn" id="sym-copy-btn" onclick="copyLatex()" title="Copy as LaTeX">copy LaTeX</button>
+      </div>
+    </div>
     <div class="legend" id="m2s-legend"></div>
   </div>
 
@@ -125,6 +138,9 @@ textarea::placeholder{color:var(--text3);}
     </div>
     <div class="code-block">
       <span class="code-tokens" id="s2m-tokens"><span class="eq-ph">output appears here</span></span>
+    </div>
+    <div class="sym-copy-row">
+      <button class="vec-btn" id="vec-btn" onclick="toggleVec()" title="Vectorize operators: * → .* ^ → .^ / → ./">.*</button>
       <button class="copy-btn" id="copy-btn" onclick="copyCode()">copy</button>
     </div>
     <div class="ambig-hint hidden" id="ambig-hint">click orange tokens to resolve &mdash; cycle: ambiguous &rarr; merge as subscript &rarr; keep as multiply</div>
@@ -234,7 +250,9 @@ function _prim(){
 function parseMatlab(src){_T=tokenize(src);_P=0;return _expr(0);}
 
 /* ── AST → LaTeX ── */
+var CONSTANTS={'pi':'\\pi','Inf':'\\infty','inf':'\\infty','NaN':'\\text{NaN}'};
 function varTex(name){
+  if(CONSTANTS[name])return CONSTANTS[name];
   const[fg]=getVarColor(name);
   const parts=name.split('_'),base=parts[0],sub=parts.slice(1).join('_');
   return '\\textcolor{'+fg+'}{' +(sub?base+'_{\\text{'+sub+'}}':base)+ '}';
@@ -264,16 +282,29 @@ function astTex(node){
       const fn=KNOWN_TEX[left.name]||'\\operatorname{'+left.name+'}';
       return fn+'^{'+astTex(right)+'}\\left('+left.args.map(astTex).join(', ')+'\\right)';
     }
-    if(op==='/'||op==='./') return '\\frac{'+astTex(left)+'}{'+astTex(right)+'}';
+    if(op==='/'||op==='./') return '\\dfrac{'+astTex(left)+'}{'+astTex(right)+'}';
     if(op==='^'||op==='.^'){
       let b=astTex(left);
       if(left.t==='binop'||left.t==='func')b='\\left('+astTex(left)+'\\right)';
-      return b+'^{'+astTex(right)+'}';
+      // If exponent is a parenthesized fraction, render as stacked fraction in superscript
+      let exp;
+      if(right.t==='paren'&&right.inner&&right.inner.t==='binop'&&(right.inner.op==='/'||right.inner.op==='/.')){
+        exp='\\frac{'+astTex(right.inner.left)+'}{'+astTex(right.inner.right)+'}';
+      } else {
+        exp=astTex(right);
+      }
+      return b+'^{'+exp+'}';
     }
     if(op==='*'||op==='.*'){
       let L=astTex(left),R=astTex(right);
       if(needsP(left,op,'left'))L='\\left('+L+'\\right)';
       if(needsP(right,op,'right'))R='\\left('+R+'\\right)';
+      // Drop cdot when multiplying number by variable/constant (implied multiplication)
+      var numLeft=(left.t==='num');
+      var numRight=(right.t==='num');
+      var varLeft=(left.t==='var');
+      var varRight=(right.t==='var');
+      if((numLeft&&varRight)||(varLeft&&numRight))return L+R;
       return L+' \\cdot '+R;
     }
     if(op==='+'||op==='-')return astTex(left)+' '+op+' '+astTex(right);
@@ -355,12 +386,21 @@ function l2m(src){
   s=s.replace(/TRIGPOW_([a-z]+)_([^_]+)_\(([^()]*)\)/g,function(m,fn,exp,inner){return fn+'('+inner+')^'+exp;});
   // 10. Greek juxtaposition: "delta t" -> "delta * t"
   s=s.replace(/(delta|alpha|beta|gamma|rho|mu|theta|omega|sigma|phi|lambda|pi|eta|nu|xi|tau|epsilon|zeta)\s+([a-zA-Z_][a-zA-Z0-9_]*)/g,function(m,g,r){return g+' * '+r;});
-  // 11. Identifier before known function: "zsqrt(" -> "z * sqrt("
-  // Longer names first so "acos" isn't split into "a"+"cos"
-  var kf='sqrt|asinh|acosh|atanh|asin|acos|atan|arcsin|arccos|arctan|sinh|cosh|tanh|sin|cos|tan|cot|sec|csc|exp|log2|log10|log|abs|floor|ceil';
-  s=s.replace(new RegExp('([a-zA-Z_][a-zA-Z0-9_]*?)('+kf+')\\(','g'),function(m,pre,fn){if(!pre)return m;return pre+' * '+fn+'(';});
-  s=s.replace(new RegExp('([a-zA-Z_][a-zA-Z0-9_]*)('+kf+')\\(','g'),function(m,pre,fn){return pre+' * '+fn+'(';});
-  // 12. Number before identifier/function: "2x" -> "2 * x", "2sqrt(" -> "2 * sqrt("
+  // 11. Identifier-function juxtaposition: 'zsqrt(' -> 'z * sqrt('
+  // Use a function that checks each match: only split if the full matched word
+  // is not itself a known function name (protects 'acos', 'asinh' etc.)
+  var allFn=new Set(['asinh','acosh','atanh','asin','acos','atan','arcsin','arccos','arctan','sqrt','sinh','cosh','tanh','sin','cos','tan','cot','sec','csc','exp','log2','log10','log','abs','floor','ceil']);
+  s=s.replace(/([a-zA-Z_][a-zA-Z0-9_]*)\(/g,function(m,word){
+    if(allFn.has(word))return m;
+    // Check if word ends with a known function name
+    for(var _f of allFn){
+      if(word.length>_f.length&&word.slice(-_f.length)===_f){
+        return word.slice(0,word.length-_f.length)+' * '+_f+'(';
+      }
+    }
+    return m;
+  });
+  // 12. Number before identifier/function: '2x' -> '2 * x'
   s=s.replace(/([0-9]+\.?[0-9]*)([a-zA-Z_][a-zA-Z0-9_]*)/g,function(m,n,v){return n+' * '+v;});
   return s.replace(/\s+/g,' ').trim();
 }
@@ -390,7 +430,7 @@ function buildCode(toks,pairs,res){
   }
   return out.map(function(t){return t.t==='op'?' '+t.v+' ':t.t==='cm'?', ':t.v;}).join('').replace(/\s+/g,' ').trim();
 }
-function synHL(toks,pairs,res){
+function synHL(toks,pairs,res,vec){
   if(!toks.length)return '<span class="eq-ph">output appears here</span>';
   resetColors();
   const fL=new Map(),fR=new Map(),fO=new Map();
@@ -411,7 +451,11 @@ function synHL(toks,pairs,res){
     if(tok.t==='op'){
       if(isO&&r==='u')return '<span class="t-ambig" onclick="toggleAmbig('+pi+')"> '+tok.v+' </span>';
       if(isO&&r==='m')return '';
-      return '<span class="t-op"> '+tok.v+' </span>';
+      // Show vectorized operators when vec mode is on
+      var dispV=tok.v;
+      if(vec&&(tok.v==='*'||tok.v==='^'||tok.v==='/')){dispV='.'+tok.v;}
+      if(tok.v==='.*'||tok.v==='.^'||tok.v==='./'){dispV=tok.v;}
+      return '<span class="t-op"> '+dispV+' </span>';
     }
     if(tok.t==='lp'||tok.t==='rp')return '<span class="t-paren">'+tok.v+'</span>';
     if(tok.t==='cm')return '<span class="t-paren">, </span>';
@@ -429,8 +473,9 @@ function toggleAmbig(pi){
   const p=ambigPairs[pi];
   const cur=ambigRes[p.li]||'u';
   ambigRes[p.li]=cur==='u'?'m':cur==='m'?'k':'u';
-  lastCode=buildCode(currentToks,ambigPairs,ambigRes);
-  document.getElementById('s2m-tokens').innerHTML=synHL(currentToks,ambigPairs,ambigRes);
+  var rawCode=buildCode(currentToks,ambigPairs,ambigRes);
+  lastCode=isVec?vectorize(rawCode):rawCode;
+  document.getElementById('s2m-tokens').innerHTML=synHL(currentToks,ambigPairs,ambigRes,isVec);
   updateBadge(ambigPairs,ambigRes);
 }
 
@@ -441,17 +486,25 @@ const EX1=[
 function loadEx1(i){document.getElementById('m2s-input').value=EX1[i];renderM2S();}
 function renderM2S(){
   resetColors();
-  const src=document.getElementById('m2s-input').value.trim();
+  // Strip MATLAB line continuations (...) and join lines
+  const raw=document.getElementById('m2s-input').value;
+  // Strip MATLAB line continuations: join lines ending with ...
+  let src=raw.replace(/\.\.\.[ \t]*\r?\n[ \t]*/g,' ').trim();
+  // Normalize vectorized ops to scalar for parsing (renders same symbolically)
+  src=src.replace(/\.\*/g,'*').replace(/\.\^/g,'^').replace(/\.\/(?!\.)/g,'/');
   const out=document.getElementById('m2s-output');
   const leg=document.getElementById('m2s-legend');
-  if(!src){out.innerHTML='<span class="eq-ph">rendered equation appears here</span>';leg.innerHTML='';return;}
+  if(!src){out.innerHTML='<span class="eq-ph">rendered equation appears here</span>';leg.innerHTML='';lastLatex='';return;}
   try{
     const latex=astTex(parseMatlab(src));
-    katex.render(latex,out,{throwOnError:false,displayMode:true,trust:true,strict:false});
-  }catch(e){out.innerHTML='<span class="eq-err">parse error: '+e.message+'</span>';leg.innerHTML='';return;}
+    katex.render('\\displaystyle{'+latex+'}',out,{throwOnError:false,displayMode:true,trust:true,strict:false});
+    out.scrollLeft=0;
+    lastLatex=latex;
+  }catch(e){out.innerHTML='<span class="eq-err">parse error: '+e.message+'</span>';leg.innerHTML='';lastLatex='';return;}
   leg.innerHTML=Object.entries(varColorMap).map(function(e){
     var n=e[0],c=e[1];return '<div class="legend-item" style="color:'+c[0]+';background:'+c[1]+'22;border-color:'+c[0]+'55">'+n+'</div>';
   }).join('');
+
 }
 
 /* ── Panel 2: Symbolic → MATLAB ── */
@@ -473,21 +526,103 @@ function renderS2M(latex){
     currentToks=tokenize(raw);
     ambigPairs=findAmbig(currentToks);
     ambigRes={};
-    lastCode=buildCode(currentToks,ambigPairs,ambigRes);
-    el.innerHTML=synHL(currentToks,ambigPairs,ambigRes);
+    var rawCode=buildCode(currentToks,ambigPairs,ambigRes);
+    lastCode=isVec?vectorize(rawCode):rawCode;
+    // Use original toks for synHL to preserve ambiguity click handlers
+    // Pass isVec so operators display with dots when active
+    el.innerHTML=synHL(currentToks,ambigPairs,ambigRes,isVec);
     updateBadge(ambigPairs,ambigRes);
   }catch(e){
     el.innerHTML='<span class="eq-err">'+e.message+'</span>';
   }
 }
 function loadEx2(i){if(mqField){mqField.latex(EX2[i]);renderS2M(EX2[i]);}}
+let lastLatex='';
+
+function copyLatex(){
+  if(!lastLatex)return;
+  var btn=document.getElementById('sym-copy-btn');
+  function onSuccess(){
+    btn.textContent='copied as LaTeX';btn.classList.add('copied');
+    setTimeout(function(){btn.textContent='copy';btn.classList.remove('copied');},2000);
+  }
+  function onFail(){
+    try{
+      var ta=document.createElement('textarea');
+      ta.value=lastLatex;ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.focus();ta.select();
+      var ok=document.execCommand('copy');
+      document.body.removeChild(ta);
+      if(ok)onSuccess();
+    }catch(e){}
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(lastLatex).then(onSuccess).catch(onFail);
+  }else{onFail();}
+}
+
+/* ── Vectorize ── */
+let isVec=false;
+
+function vectorize(code){
+  // Add . before * ^ / but not before .* .^ ./ (already vectorized)
+  // and not inside function names or variable names
+  return code
+    .replace(/([^.])(\*)/g, function(m,pre,op){return pre+'.*';})
+    .replace(/([^.])(\^)/g, function(m,pre,op){return pre+'.^';})
+    .replace(/([^.])(\/)([^\/])/g, function(m,pre,op,post){return pre+'./'+post;})
+    // clean up any double dots
+    .replace(/\.\.\*/g,'.*').replace(/\.\.\^/g,'.^').replace(/\.\.\//g,'./');
+}
+
+function unvectorize(code){
+  // Remove . before * ^ /  — but only the element-wise ones
+  return code
+    .replace(/\.\*/g,'*')
+    .replace(/\.\^/g,'^')
+    .replace(/\.\//g,'/');
+}
+
+function toggleVec(){
+  isVec=!isVec;
+  const btn=document.getElementById('vec-btn');
+  if(isVec){btn.classList.add('active');btn.textContent='.* on';}
+  else{btn.classList.remove('active');btn.textContent='.*';}
+  // Re-render display without re-parsing (preserves ambiguity state)
+  var rawCode=buildCode(currentToks,ambigPairs,ambigRes);
+  lastCode=isVec?vectorize(rawCode):rawCode;
+  var el=document.getElementById('s2m-tokens');
+  if(currentToks.length)el.innerHTML=synHL(currentToks,ambigPairs,ambigRes,isVec);
+}
+
 function copyCode(){
   if(!lastCode)return;
-  navigator.clipboard.writeText(lastCode).then(function(){
-    const btn=document.getElementById('copy-btn');
+  var btn=document.getElementById('copy-btn');
+  function onSuccess(){
     btn.textContent='copied!';btn.classList.add('copied');
     setTimeout(function(){btn.textContent='copy';btn.classList.remove('copied');},1500);
-  });
+  }
+  function onFail(){
+    // Fallback: create a temporary textarea and use execCommand
+    try{
+      var ta=document.createElement('textarea');
+      ta.value=lastCode;
+      ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);
+      ta.focus();ta.select();
+      var ok=document.execCommand('copy');
+      document.body.removeChild(ta);
+      if(ok)onSuccess();
+      else{btn.textContent='select & copy';setTimeout(function(){btn.textContent='copy';},2000);}
+    }catch(e){
+      btn.textContent='select & copy';setTimeout(function(){btn.textContent='copy';},2000);
+    }
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(lastCode).then(onSuccess).catch(onFail);
+  }else{
+    onFail();
+  }
 }
 window.addEventListener('load',function(){
   const MQ=MathQuill.getInterface(2);
