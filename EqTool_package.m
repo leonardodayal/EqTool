@@ -16,7 +16,13 @@ function EqTool_package()
     end
 
     % Check source files exist
-    required = {'EqTool.m', 'matlab_equation_tool.html'};
+    required = {
+        'EqTool.m',
+        'matlab_equation_tool.html',
+        fullfile('styles', 'main.css'),
+        fullfile('src', 'js', 'core.js'),
+        fullfile('src', 'js', 'ui.js')
+    };
     for i = 1:numel(required)
         if ~isfile(fullfile(toolDir, required{i}))
             error('EqTool_package: missing required file: %s\nExpected in: %s', ...
@@ -27,6 +33,9 @@ function EqTool_package()
     outFile  = fullfile(toolDir, 'EqTool.mltbx');
     eqtoolM  = fullfile(toolDir, 'EqTool.m');
     eqtoolH  = fullfile(toolDir, 'matlab_equation_tool.html');
+    eqtoolCSS = fullfile(toolDir, 'styles', 'main.css');
+    eqtoolCore = fullfile(toolDir, 'src', 'js', 'core.js');
+    eqtoolUI = fullfile(toolDir, 'src', 'js', 'ui.js');
 
     fprintf('Packaging EqTool.mltbx...\n');
 
@@ -48,8 +57,8 @@ function EqTool_package()
     opts.OutputFile           = outFile;
     opts.ToolboxMatlabPath    = {toolDir};
 
-    % Both files included in the toolbox
-    opts.ToolboxFiles = {eqtoolM; eqtoolH};
+    % Include launcher, HTML shell, and local split assets.
+    opts.ToolboxFiles = {eqtoolM; eqtoolH; eqtoolCSS; eqtoolCore; eqtoolUI};
 
     % Register EqTool.m in the Apps gallery
     opts.AppGalleryFiles = {eqtoolM};

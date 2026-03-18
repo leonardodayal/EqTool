@@ -26,8 +26,8 @@ A bidirectional equation tool that runs inside MATLAB. Paste MATLAB code to see 
 4. Run `EqTool`
 
 **Option B — Direct from GitHub**
-1. Download `EqTool.m` and `matlab_equation_tool.html`
-2. Place both in the same folder
+1. Download the full repo (or at minimum `EqTool.m`, `matlab_equation_tool.html`, `styles/`, and `src/js/`)
+2. Preserve the folder structure
 3. Add that folder to your MATLAB path
 4. Run `EqTool`
 
@@ -59,8 +59,27 @@ Click the `⇄` button to switch. Type directly into the equation editor:
 | File | Description |
 |------|-------------|
 | `EqTool.m` | Main launcher — self-bundling on first run |
-| `matlab_equation_tool.html` | Tool UI — HTML/JS with all rendering logic |
+| `matlab_equation_tool.html` | Tool UI shell — references modular CSS/JS files |
+| `styles/main.css` | UI styling |
+| `src/js/core.js` | Parser/conversion core (MATLAB <-> LaTeX, ambiguity, vectorization) |
+| `src/js/ui.js` | DOM/UI wiring and interactions |
 | `EqTool_package.m` | Run once to build `EqTool.mltbx` for distribution |
+| `tests/core.test.js` | Automated Node tests for parsing and conversion logic |
+| `TESTING.md` | Full automated + manual test checklist |
+
+## Development
+
+### Run automated tests
+
+```bash
+npm test
+```
+
+All tests must pass before committing parser or conversion changes.
+
+### Manual verification
+
+Follow `TESTING.md` for browser and MATLAB smoke tests.
 
 ## Packaging
 

@@ -52,6 +52,7 @@ function ok = eqtool_bundle(srcFile, outFile)
 % Downloads and inlines all JS/CSS dependencies into a single HTML file.
 
     ok = false;
+    toolDir = fileparts(srcFile);
 
     DEPS = { ...
         'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css',       'css'; ...
@@ -109,15 +110,25 @@ function ok = eqtool_bundle(srcFile, outFile)
         html = fread(fid, '*char')';
         fclose(fid);
 
+        % Read local split assets and inline them so bundled HTML stays standalone.
+        localCSS = eqtool_read_text(fullfile(toolDir, 'styles', 'main.css'));
+        localCoreJS = eqtool_read_text(fullfile(toolDir, 'src', 'js', 'core.js'));
+        localUIJS = eqtool_read_text(fullfile(toolDir, 'src', 'js', 'ui.js'));
+
         % Strip CDN link/script tags
         html = regexprep(html, '<link[^>]+href="https://[^"]*"[^>]*>\s*', '');
         html = regexprep(html, '<script[^>]+src="https://[^"]*"[^>]*></script>\s*', '');
         html = regexprep(html, '<link[^>]+fonts\.googleapis[^>]*>\s*', '');
         html = regexprep(html, '<link[^>]+fonts\.gstatic[^>]*>\s*', '');
 
+        % Strip local asset tags (they will be inlined below).
+        html = regexprep(html, '<link[^>]+href="styles/main\.css"[^>]*>\s*', '');
+        html = regexprep(html, '<script[^>]+src="src/js/core\.js"[^>]*></script>\s*', '');
+        html = regexprep(html, '<script[^>]+src="src/js/ui\.js"[^>]*></script>\s*', '');
+
         % Inject inlined deps before </head>
-        inject = ['<style>', inlineCSS, '</style>', newline, ...
-                  '<script>', inlineJS,  '</script>', newline];
+        inject = ['<style>', inlineCSS, newline, localCSS, '</style>', newline, ...
+              '<script>', inlineJS, newline, localCoreJS, newline, localUIJS, '</script>', newline];
         html = strrep(html, '</head>', [inject, '</head>']);
 
         % Write bundled file
@@ -139,6 +150,19 @@ function ok = eqtool_bundle(srcFile, outFile)
             e.message), 'EqTool Setup Error', 'Icon', 'error');
         ok = false;
     end
+end
+
+
+function txt = eqtool_read_text(filePath)
+% Reads UTF-8 text and throws a clear error when the file is missing.
+
+    if ~isfile(filePath)
+        error('EqTool: missing required asset file: %s', filePath);
+    end
+
+    fid = fopen(filePath, 'r', 'n', 'UTF-8');
+    txt = fread(fid, '*char')';
+    fclose(fid);
 end
 
 
