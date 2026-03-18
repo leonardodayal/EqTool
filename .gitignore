@@ -11,3 +11,4 @@ matlab_equation_tool_bundled.html
 # MATLAB
 *.asv
 *.m~
+.Rhistory
