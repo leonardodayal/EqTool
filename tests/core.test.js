@@ -34,7 +34,12 @@ test('l2m preserves adjacent Greek commands without whitespace', () => {
 
 test('l2m converts Gamma and zeta function product without backslash leakage', () => {
   const code = core.l2m('\\Gamma \\left(s\\right)\\zeta \\left(s\\right)');
-  assert.equal(code, 'Gamma(s) * zeta(s)');
+  assert.equal(code, 'Gamma (s) * zeta(s)');
+});
+
+test('l2m treats Gamma and gamma as adjacent symbolic factors', () => {
+  const code = core.l2m('\\Gamma \\gamma');
+  assert.equal(code, 'Gamma * gamma');
 });
 
 test('l2m maps uppercase Greek commands to identifiers without splitting', () => {
