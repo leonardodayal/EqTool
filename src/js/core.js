@@ -635,6 +635,37 @@
     return parts.join(' * ');
   }
 
+  function replaceLatexSymbolCommand(src, cmdName, mapped) {
+    const cmd = '\\' + cmdName;
+    let out = '';
+    let i = 0;
+
+    while (i < src.length) {
+      const j = src.indexOf(cmd, i);
+      if (j === -1) {
+        out += src.slice(i);
+        break;
+      }
+
+      out += src.slice(i, j);
+      const next = src[j + cmd.length] || '';
+
+      // If command text is followed by a letter, treat it as part of a longer token.
+      if (/[a-zA-Z]/.test(next)) {
+        out += cmd;
+      } else if (next === '\\') {
+        // Preserve boundary between adjacent commands: \Delta\delta -> Delta \delta.
+        out += mapped + ' ';
+      } else {
+        out += mapped;
+      }
+
+      i = j + cmd.length;
+    }
+
+    return out;
+  }
+
   function assertSupportedLogBases(src) {
     const supportedBases = new Set(['2', '10']);
     const patterns = [
@@ -740,8 +771,24 @@
     s = s.replace(/\\text\{([^}]+)\}/g, '$1');
     s = s.replace(/\\mathrm\{([^}]+)\}/g, '$1');
 
-    for (const k in LATEX_SYMBOL_MAP) {
-      s = s.replace(new RegExp('\\\\' + k + '(?![a-zA-Z])', 'g'), LATEX_SYMBOL_MAP[k]);
+    const symbolKeys = Object.keys(LATEX_SYMBOL_MAP).sort(function (a, b) {
+      const byLen = b.length - a.length;
+      if (byLen !== 0) {
+        return byLen;
+      }
+      // For equal-length symbols, keep deterministic lexical order so
+      // uppercase commands (e.g. Delta) are handled before lowercase (delta).
+      if (a < b) {
+        return -1;
+      }
+      if (a > b) {
+        return 1;
+      }
+      return 0;
+    });
+    for (let i = 0; i < symbolKeys.length; i += 1) {
+      const k = symbolKeys[i];
+      s = replaceLatexSymbolCommand(s, k, LATEX_SYMBOL_MAP[k]);
     }
 
     s = s.replace(/\\cdot\s*/g, '*').replace(/\\times\s*/g, '*');
