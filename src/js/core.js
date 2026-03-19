@@ -879,6 +879,18 @@
     // identifier, e.g. log(1234)a -> log(1234) * a.
     s = s.replace(/\)\s*([a-zA-Z_][a-zA-Z0-9_]*|QVARPROT[A-Z]+Q)(?!\s*\()/g, ') * $1');
 
+    // Insert multiplication between a number and a following opening parenthesis,
+    // e.g. 3(x) -> 3 * (x), but not for function names like log10, log2.
+    // Ensure we don't match when the number is part of "log10", "log2", etc.
+    s = s.replace(/(?<![a-zA-Z_])([0-9]+\.?[0-9]*)\s*\((?!.*LOGBASE)/g, function (match, num, offset) {
+      // Check if this number is part of a function name like 'log10' or 'log2'
+      const before = s.substring(Math.max(0, offset - 10), offset);
+      if (/(?:log)\d*$/.test(before)) {
+        return match; // Don't modify if part of a function name
+      }
+      return num + ' * (';
+    });
+
     s = s.replace(/([0-9]+\.?[0-9]*)([a-zA-Z_][a-zA-Z0-9_]*)/g, function (_m, n, v) {
       return n + ' * ' + v;
     });

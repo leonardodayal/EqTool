@@ -187,6 +187,11 @@ test('l2m handles deeply nested square root expressions', () => {
   assert.equal(code, '(sqrt(sqrt(sqrt(x))))');
 });
 
+test('l2m inserts multiplication between number and parenthesis', () => {
+  const code = core.l2m('3\\left(x\\right) + 2.5(y) + 10\\left(z\\right)');
+  assert.equal(code, '3 * (x) + 2.5 * (y) + 10 * (z)');
+});
+
 test('l2m preserves consecutive trig functions with proper spacing and multiplication', () => {
   const code = core.l2m('\\sin a\\cos \\left(1\\right)');
   assert.equal(code, 'sin(a) * cos(1)');
