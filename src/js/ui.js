@@ -8,6 +8,7 @@
     currentMode: 'm2s',
     mqField: null,
     isNormalizingEdit: false,
+    skipAutoSubscriptOnce: false,
     isVec: false,
     currentToks: [],
     ambigPairs: [],
@@ -380,7 +381,11 @@
           }
 
           const rawLatex = state.mqField.latex();
-          const normalized = core.normalizeParenLatex(rawLatex);
+          const parenNormalized = core.normalizeCompactLogInput(core.normalizeParenLatex(rawLatex));
+          const normalized = state.skipAutoSubscriptOnce
+            ? parenNormalized
+            : core.autoSubscriptVariableNumbers(parenNormalized);
+          state.skipAutoSubscriptOnce = false;
           if (normalized !== rawLatex) {
             state.isNormalizingEdit = true;
             state.mqField.latex(normalized);
@@ -398,6 +403,19 @@
       state.mqField.focus();
     });
 
+    byId('mq-wrap').addEventListener('keydown', function (evt) {
+      if (!evt || !evt.key) {
+        return;
+      }
+      if (evt.key === 'Backspace' || evt.key === 'Delete') {
+        state.skipAutoSubscriptOnce = true;
+        return;
+      }
+
+      // Clear stale delete intent so the next typed character can auto-subscript.
+      state.skipAutoSubscriptOnce = false;
+    });
+
     // Force plain-text paste to be interpreted as LaTeX input for reliable round-trip workflows.
     byId('mq-wrap').addEventListener('paste', function (evt) {
       const clipboard = evt.clipboardData || window.clipboardData;
@@ -411,7 +429,7 @@
       }
 
       evt.preventDefault();
-      const normalized = core.normalizeParenLatex(pasted);
+      const normalized = core.autoSubscriptVariableNumbers(core.normalizeCompactLogInput(core.normalizeParenLatex(pasted)));
       // Insert at cursor position instead of replacing entire field
       state.mqField.write(normalized);
       const fullLatex = state.mqField.latex();
