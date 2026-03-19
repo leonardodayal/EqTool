@@ -9,6 +9,59 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles/main.css">
+<script>
+(function () {
+  function ensureErrorBox() {
+    var id = 'eqtool-runtime-error';
+    var box = document.getElementById(id);
+    if (!box) {
+      box = document.createElement('pre');
+      box.id = id;
+      box.style.position = 'fixed';
+      box.style.left = '8px';
+      box.style.right = '8px';
+      box.style.bottom = '8px';
+      box.style.zIndex = '999999';
+      box.style.maxHeight = '45vh';
+      box.style.overflow = 'auto';
+      box.style.margin = '0';
+      box.style.padding = '10px 12px';
+      box.style.background = '#2b1212';
+      box.style.border = '1px solid #cc4444';
+      box.style.color = '#ffd9d9';
+      box.style.font = '12px/1.4 monospace';
+      box.style.whiteSpace = 'pre-wrap';
+      box.style.borderRadius = '6px';
+      var parent = document.body || document.documentElement;
+      parent.appendChild(box);
+    }
+    return box;
+  }
+
+  function showRuntimeError(title, detail) {
+    try {
+      var box = ensureErrorBox();
+      var stamp = new Date().toISOString();
+      box.textContent = '[EqTool Runtime Error] ' + stamp + '\n' + title + '\n' + (detail || '');
+    } catch (_err) {
+      // Ignore secondary failures in diagnostics path.
+    }
+  }
+
+  window.addEventListener('error', function (evt) {
+    var message = evt && evt.message ? evt.message : 'Unknown script error';
+    var source = evt && evt.filename ? evt.filename : '';
+    var line = evt && evt.lineno ? ':' + evt.lineno : '';
+    var col = evt && evt.colno ? ':' + evt.colno : '';
+    showRuntimeError(message, source + line + col);
+  });
+
+  window.addEventListener('unhandledrejection', function (evt) {
+    var reason = evt && evt.reason ? String(evt.reason) : 'Unhandled promise rejection';
+    showRuntimeError('Unhandled promise rejection', reason);
+  });
+}());
+</script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
