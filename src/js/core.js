@@ -27,6 +27,27 @@
     'phi', 'lambda', 'pi', 'eta', 'nu', 'xi', 'tau', 'epsilon', 'zeta'
   ]);
   const CONSTANTS = { pi: '\\pi', Inf: '\\infty', inf: '\\infty', NaN: '\\text{NaN}' };
+  const LATEX_SYMBOL_MAP = {
+    // Lowercase Greek.
+    alpha: 'alpha', beta: 'beta', gamma: 'gamma', delta: 'delta', epsilon: 'epsilon', varepsilon: 'varepsilon',
+    zeta: 'zeta', eta: 'eta', theta: 'theta', vartheta: 'vartheta', iota: 'iota', kappa: 'kappa',
+    lambda: 'lambda', mu: 'mu', nu: 'nu', xi: 'xi', pi: 'pi', varpi: 'varpi', rho: 'rho',
+    varrho: 'varrho', sigma: 'sigma', varsigma: 'varsigma', tau: 'tau', upsilon: 'upsilon',
+    phi: 'phi', varphi: 'varphi', chi: 'chi', psi: 'psi', omega: 'omega',
+    // Uppercase Greek.
+    Gamma: 'Gamma', Delta: 'delta', Theta: 'Theta', Lambda: 'Lambda', Xi: 'Xi', Pi: 'Pi',
+    Sigma: 'Sigma', Upsilon: 'Upsilon', Phi: 'Phi', Psi: 'Psi', Omega: 'Omega',
+    // Common math symbols used as named identifiers.
+    partial: 'partial', nabla: 'nabla', ell: 'ell', hbar: 'hbar', aleph: 'aleph', wp: 'wp',
+    Re: 'Re', Im: 'Im', imath: 'imath', jmath: 'jmath', infty: 'Inf'
+  };
+  const SYMBOLIC_WORDS = new Set([
+    'delta', 'alpha', 'beta', 'gamma', 'rho', 'mu', 'theta', 'omega', 'sigma',
+    'phi', 'lambda', 'pi', 'eta', 'nu', 'xi', 'tau', 'epsilon', 'zeta',
+    'varepsilon', 'vartheta', 'varpi', 'varrho', 'varsigma', 'upsilon', 'varphi', 'chi', 'psi',
+    'Gamma', 'Delta', 'Theta', 'Lambda', 'Xi', 'Pi', 'Sigma', 'Upsilon', 'Phi', 'Psi', 'Omega',
+    'partial', 'nabla', 'ell', 'hbar', 'aleph', 'wp', 'Re', 'Im', 'imath', 'jmath'
+  ]);
 
   const EXAMPLES_M2S = [
     '(sin(theta)^2 + acos(alpha_0)) / (2 * delta_t) + sqrt(rho_ref^3)'
@@ -591,12 +612,7 @@
     }
 
     // Preserve common symbolic names and constants as single identifiers.
-    const preserve = new Set([
-      'delta', 'alpha', 'beta', 'gamma', 'rho', 'mu', 'theta', 'omega', 'sigma',
-      'phi', 'lambda', 'pi', 'eta', 'nu', 'xi', 'tau', 'epsilon', 'zeta',
-      'Gamma', 'Delta', 'Theta', 'Lambda', 'Xi', 'Pi', 'Sigma', 'Upsilon', 'Phi', 'Psi', 'Omega',
-      'Inf', 'NaN'
-    ]);
+    const preserve = new Set(Array.from(SYMBOLIC_WORDS).concat(['Inf', 'NaN']));
     if (preserve.has(token)) {
       return token;
     }
@@ -724,18 +740,10 @@
     s = s.replace(/\\text\{([^}]+)\}/g, '$1');
     s = s.replace(/\\mathrm\{([^}]+)\}/g, '$1');
 
-    const greek = {
-      Gamma: 'Gamma', Theta: 'Theta', Lambda: 'Lambda', Xi: 'Xi', Pi: 'Pi', Sigma: 'Sigma',
-      Upsilon: 'Upsilon', Phi: 'Phi', Psi: 'Psi', Omega: 'Omega',
-      Delta: 'delta', delta: 'delta', alpha: 'alpha', beta: 'beta', gamma: 'gamma', rho: 'rho', mu: 'mu',
-      theta: 'theta', omega: 'omega', sigma: 'sigma', phi: 'phi', pi: 'pi', lambda: 'lambda', eta: 'eta',
-      nu: 'nu', xi: 'xi', tau: 'tau', epsilon: 'epsilon', zeta: 'zeta'
-    };
-    for (const k in greek) {
-      s = s.replace(new RegExp('\\\\' + k + '(?![a-zA-Z])', 'g'), greek[k]);
+    for (const k in LATEX_SYMBOL_MAP) {
+      s = s.replace(new RegExp('\\\\' + k + '(?![a-zA-Z])', 'g'), LATEX_SYMBOL_MAP[k]);
     }
 
-    s = s.replace(/\\infty/g, 'Inf');
     s = s.replace(/\\cdot\s*/g, '*').replace(/\\times\s*/g, '*');
 
     s = exFrac(s);
@@ -876,8 +884,8 @@
     s = s.replace(/QLOGBASE10FNQ/g, 'log10');
     s = s.replace(/QLOGBASE2FNQ/g, 'log2');
 
-    const callableFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|sqrt|floor|ceil|log10|log2|sin|cos|tan|cot|sec|csc|exp|abs|log|ln|atan2|nthroot|zeta|Gamma';
-    const knownFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|floor|ceil|log10|log2|sqrt|sin|cos|tan|cot|sec|csc|exp|log|ln|abs|zeta|Gamma';
+    const callableFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|sqrt|floor|ceil|log10|log2|sin|cos|tan|cot|sec|csc|exp|abs|log|ln|atan2|nthroot|zeta|Gamma|psi';
+    const knownFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|floor|ceil|log10|log2|sqrt|sin|cos|tan|cot|sec|csc|exp|log|ln|abs|zeta|Gamma|psi';
 
     s = s.replace(new RegExp('\\b(' + callableFnPattern + ')\\s+([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\\.[0-9]+)?|QVARPROT[A-Z]+Q)(?!\\s*\\()', 'g'), function (_m, fn, arg) {
       return fn + '(' + arg + ')';
@@ -886,7 +894,7 @@
     // Handle functions followed directly by parentheses with optional whitespace, e.g. cos (1) -> cos(1).
     s = s.replace(new RegExp('\\b(' + callableFnPattern + ')\\s+\\(', 'g'), '$1(');
 
-    s = s.replace(/(delta|alpha|beta|gamma|rho|mu|theta|omega|sigma|phi|lambda|pi|eta|nu|xi|tau|epsilon|zeta)\s+([a-zA-Z_][a-zA-Z0-9_]*)/g, function (_m, g, r) {
+    s = s.replace(/(delta|alpha|beta|gamma|rho|mu|theta|omega|sigma|phi|lambda|pi|eta|nu|xi|tau|epsilon|zeta|varepsilon|vartheta|varpi|varrho|varsigma|upsilon|varphi|chi|psi|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega|partial|nabla|ell|hbar|aleph|wp|Re|Im|imath|jmath)\s+([a-zA-Z_][a-zA-Z0-9_]*)/g, function (_m, g, r) {
       return g + ' * ' + r;
     });
 

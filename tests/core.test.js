@@ -32,6 +32,11 @@ test('l2m maps uppercase Greek commands to identifiers without splitting', () =>
   assert.equal(code, 'Theta + Omega');
 });
 
+test('l2m maps additional Greek and math symbol commands without backslash leakage', () => {
+  const code = core.l2m('\\psi \\left(s\\right) + \\varphi + \\partial x + \\nabla f');
+  assert.equal(code, 'psi(s) + varphi + partial * x + nabla * f');
+});
+
 test('l2m inserts multiplication between adjacent parenthesized groups', () => {
   const code = core.l2m('\\left(4x\\right)\\left(x\\right)');
   assert.equal(code, '(4 * x) * (x)');
