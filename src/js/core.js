@@ -372,8 +372,9 @@
       });
 
       // Convert only single-letter variable+number runs, e.g. a3 -> a_{3}.
-      // This avoids changing multi-letter names like log223 in v1.2.3.
-      out = out.replace(/(^|[^\\a-zA-Z0-9_{])([a-zA-Z])([0-9]+)/g, function (_m, pre, v, digits) {
+      // Allow digit-prefix contexts so compact terms like 332a12 normalize to 332a_{12}.
+      // This still avoids changing multi-letter names like log223.
+      out = out.replace(/(^|[^\\a-zA-Z_{])([a-zA-Z])([0-9]+)/g, function (_m, pre, v, digits) {
         return pre + v + '_{' + digits + '}';
       });
 
@@ -899,9 +900,9 @@
       return n + ' * ' + v;
     });
 
-    // Convert compact single-letter variable-digit tokens into subscripts,
-    // e.g. a12 -> a_{12}. Keep this narrow to avoid rewriting multi-letter names.
-    s = s.replace(/\b([a-zA-Z])([0-9]+)\b/g, '$1_{$2}');
+    // Convert compact single-letter+digits factors into MATLAB subscript form,
+    // e.g. a12 -> a_12 (including cases like 332a12 -> 332 * a_12).
+    s = s.replace(/\b([a-zA-Z])([0-9]+)\b/g, '$1_$2');
 
     // Restore protected subscript text.
     for (let i = 0; i < subscriptProtections.length; i += 1) {

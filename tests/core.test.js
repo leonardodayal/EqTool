@@ -197,9 +197,9 @@ test('l2m inserts multiplication between parenthesis and number', () => {
   assert.equal(code, '(x) * 3 + (a + b) * 2.5 + sin(x) * 10');
 });
 
-test('l2m converts compact single-letter digit token after multiplication into subscript', () => {
+test('l2m converts compact single-letter digit token after coefficient into subscript', () => {
   const code = core.l2m('\\left(x\\right)332a12');
-  assert.equal(code, '(x) * 332 * a_{12}');
+  assert.equal(code, '(x) * 332 * a_12');
 });
 
 test('l2m preserves consecutive trig functions with proper spacing and multiplication', () => {
@@ -260,6 +260,11 @@ test('autoSubscriptVariableNumbers does not rewrite multi-letter identifiers', (
 test('autoSubscriptVariableNumbers does not merge trailing digits into log base subscripts', () => {
   const out = core.autoSubscriptVariableNumbers('log_{10}1 + log_{2}3');
   assert.equal(out, 'log_{10}1 + log_{2}3');
+});
+
+test('autoSubscriptVariableNumbers converts compact coefficient-variable-digit tokens', () => {
+  const out = core.autoSubscriptVariableNumbers('\\left(x\\right)332a12');
+  assert.equal(out, '\\left(x\\right)332a_{12}');
 });
 
 test('normalizeCompactLogInput wraps compact explicit base-log numeric input', () => {
