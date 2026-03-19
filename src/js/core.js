@@ -351,23 +351,23 @@
 
       // If a numeric subscript already exists and more digits are typed immediately
       // after it, absorb them into the same subscript: a_{1}23 -> a_{123}.
-      out = out.replace(/(^|[^\\a-zA-Z0-9_])([a-zA-Z])_\{([a-zA-Z0-9]+)\}\s*([0-9]+)/g, function (_m, pre, v, sub, extra) {
+      out = out.replace(/(^|[^\\a-zA-Z_])([a-zA-Z])_\{([a-zA-Z0-9]+)\}\s*([0-9]+)/g, function (_m, pre, v, sub, extra) {
         return pre + v + '_{' + sub + extra + '}';
       });
 
       // Handle unbraced alphabetic subscripts with trailing digits emitted by MathQuill,
       // e.g. a_d123 -> a_{d123}, a_ref9 -> a_{ref9}.
-      out = out.replace(/(^|[^\\a-zA-Z0-9_])([a-zA-Z])_([a-zA-Z]+)\s*([0-9]+)/g, function (_m, pre, v, sub, extra) {
+      out = out.replace(/(^|[^\\a-zA-Z_])([a-zA-Z])_([a-zA-Z]+)\s*([0-9]+)/g, function (_m, pre, v, sub, extra) {
         return pre + v + '_{' + sub + extra + '}';
       });
 
       // Handle compact unbraced subscripts that may appear during edits: a_123 -> a_{123}.
-      out = out.replace(/(^|[^\\a-zA-Z0-9_])([a-zA-Z])_([0-9]+)/g, function (_m, pre, v, sub) {
+      out = out.replace(/(^|[^\\a-zA-Z_])([a-zA-Z])_([0-9]+)/g, function (_m, pre, v, sub) {
         return pre + v + '_{' + sub + '}';
       });
 
       // Canonicalize single-letter unbraced subscripts: a_d -> a_{d}.
-      out = out.replace(/(^|[^\\a-zA-Z0-9_])([a-zA-Z])_([a-zA-Z])(?![a-zA-Z0-9{])/g, function (_m, pre, v, sub) {
+      out = out.replace(/(^|[^\\a-zA-Z_])([a-zA-Z])_([a-zA-Z])(?![a-zA-Z0-9{])/g, function (_m, pre, v, sub) {
         return pre + v + '_{' + sub + '}';
       });
 

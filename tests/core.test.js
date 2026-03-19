@@ -267,6 +267,11 @@ test('autoSubscriptVariableNumbers converts compact coefficient-variable-digit t
   assert.equal(out, '\\left(x\\right)332a_{12}');
 });
 
+test('autoSubscriptVariableNumbers canonicalizes unbraced numeric subscripts after coefficients', () => {
+  const out = core.autoSubscriptVariableNumbers('\\left(x\\right)33a_243');
+  assert.equal(out, '\\left(x\\right)33a_{243}');
+});
+
 test('normalizeCompactLogInput wraps compact explicit base-log numeric input', () => {
   const out = core.normalizeCompactLogInput('\\log_{10}1 + \\log_{2}3');
   assert.equal(out, '\\log_{10}\\left(1\\right) + \\log_{2}\\left(3\\right)');
