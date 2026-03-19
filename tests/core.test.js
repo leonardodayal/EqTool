@@ -22,6 +22,16 @@ test('l2m converts inverse trig and greek spacing', () => {
   assert.equal(code, 'acos(alpha_0)+delta * t');
 });
 
+test('l2m converts Gamma and zeta function product without backslash leakage', () => {
+  const code = core.l2m('\\Gamma \\left(s\\right)\\zeta \\left(s\\right)');
+  assert.equal(code, 'Gamma(s) * zeta(s)');
+});
+
+test('l2m maps uppercase Greek commands to identifiers without splitting', () => {
+  const code = core.l2m('\\Theta + \\Omega');
+  assert.equal(code, 'Theta + Omega');
+});
+
 test('l2m inserts multiplication between adjacent parenthesized groups', () => {
   const code = core.l2m('\\left(4x\\right)\\left(x\\right)');
   assert.equal(code, '(4 * x) * (x)');

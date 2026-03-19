@@ -594,6 +594,7 @@
     const preserve = new Set([
       'delta', 'alpha', 'beta', 'gamma', 'rho', 'mu', 'theta', 'omega', 'sigma',
       'phi', 'lambda', 'pi', 'eta', 'nu', 'xi', 'tau', 'epsilon', 'zeta',
+      'Gamma', 'Delta', 'Theta', 'Lambda', 'Xi', 'Pi', 'Sigma', 'Upsilon', 'Phi', 'Psi', 'Omega',
       'Inf', 'NaN'
     ]);
     if (preserve.has(token)) {
@@ -724,6 +725,8 @@
     s = s.replace(/\\mathrm\{([^}]+)\}/g, '$1');
 
     const greek = {
+      Gamma: 'Gamma', Theta: 'Theta', Lambda: 'Lambda', Xi: 'Xi', Pi: 'Pi', Sigma: 'Sigma',
+      Upsilon: 'Upsilon', Phi: 'Phi', Psi: 'Psi', Omega: 'Omega',
       Delta: 'delta', delta: 'delta', alpha: 'alpha', beta: 'beta', gamma: 'gamma', rho: 'rho', mu: 'mu',
       theta: 'theta', omega: 'omega', sigma: 'sigma', phi: 'phi', pi: 'pi', lambda: 'lambda', eta: 'eta',
       nu: 'nu', xi: 'xi', tau: 'tau', epsilon: 'epsilon', zeta: 'zeta'
@@ -873,8 +876,8 @@
     s = s.replace(/QLOGBASE10FNQ/g, 'log10');
     s = s.replace(/QLOGBASE2FNQ/g, 'log2');
 
-    const callableFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|sqrt|floor|ceil|log10|log2|sin|cos|tan|cot|sec|csc|exp|abs|log|ln|atan2|nthroot';
-    const knownFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|floor|ceil|log10|log2|sqrt|sin|cos|tan|cot|sec|csc|exp|log|ln|abs';
+    const callableFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|sqrt|floor|ceil|log10|log2|sin|cos|tan|cot|sec|csc|exp|abs|log|ln|atan2|nthroot|zeta|Gamma';
+    const knownFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|floor|ceil|log10|log2|sqrt|sin|cos|tan|cot|sec|csc|exp|log|ln|abs|zeta|Gamma';
 
     s = s.replace(new RegExp('\\b(' + callableFnPattern + ')\\s+([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\\.[0-9]+)?|QVARPROT[A-Z]+Q)(?!\\s*\\()', 'g'), function (_m, fn, arg) {
       return fn + '(' + arg + ')';
