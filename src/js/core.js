@@ -410,17 +410,6 @@
       return '\\' + fn + '\\left(' + value + '\\right)';
     });
     
-    // Ensure inverse hyperbolic function names typed as plain text render upright,
-    // e.g. atanh(1) -> \mathrm{atanh}\left(1\right).
-    out = out.replace(/(^|[^\\a-zA-Z])(atanh|asinh|acosh)(?=\s*(?:\\left\(|\())/g, function (_m, pre, fn) {
-      return pre + '\\mathrm{' + fn + '}';
-    });
-    
-    // Compact numeric form for inverse hyperbolic names: atanh1 -> \mathrm{atanh}\left(1\right).
-    out = out.replace(/(^|[^\\a-zA-Z])(atanh|asinh|acosh)\s*([0-9]+(?:\.[0-9]+)?)/g, function (_m, pre, fn, value) {
-      return pre + '\\mathrm{' + fn + '}\\left(' + value + '\\right)';
-    });
-
     // Merge appended digits into numeric trig arguments: \sin\left(1\right)0 -> \sin\left(10\right).
     out = out.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\\left\(([0-9]+(?:\.[0-9]+)?)\\right\)\s*([0-9]+)/g, function (_m, fn, value, extra) {
       return '\\' + fn + '\\left(' + value + extra + '\\right)';
