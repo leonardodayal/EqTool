@@ -31,7 +31,10 @@
       <button class="ex-btn" id="m2s-demo-btn">demo</button>
     </div>
     <div class="row-label">matlab code</div>
-    <textarea id="m2s-input" placeholder="e.g. rho * u^2 / (2*delta_t) + sqrt(p_ref)" spellcheck="false"></textarea>
+    <div class="m2s-input-wrap" id="m2s-input-wrap">
+      <pre class="m2s-input-color" id="m2s-input-color"></pre>
+      <textarea id="m2s-input" placeholder="e.g. rho * u^2 / (2*delta_t) + sqrt(p_ref)" spellcheck="false"></textarea>
+    </div>
     <div class="row-label">symbolic view</div>
     <div class="eq-output-wrap">
       <div class="eq-output" id="m2s-output"><span class="eq-ph">rendered equation appears here</span></div>
@@ -39,6 +42,7 @@
         <button class="sym-copy-btn" id="sym-copy-btn">copy LaTeX</button>
       </div>
     </div>
+    <div class="m2s-warn hidden" id="m2s-paren-warn"></div>
     <div class="legend" id="m2s-legend"></div>
   </div>
 

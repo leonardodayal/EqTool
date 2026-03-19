@@ -19,12 +19,26 @@ function EqTool()
         error('EqTool: cannot find matlab_equation_tool.html in %s', toolDir);
     end
 
-    % Bundle on first run, or if source HTML is newer than bundled file
+    % Bundle on first run, or if any local source asset is newer than bundled file
     needsBundle = ~isfile(bundled);
     if ~needsBundle
-        srcInfo  = dir(srcFile);
-        bndInfo  = dir(bundled);
-        needsBundle = srcInfo.datenum > bndInfo.datenum;
+        bndInfo = dir(bundled);
+        sourceAssets = {
+            srcFile,
+            fullfile(toolDir, 'styles', 'main.css'),
+            fullfile(toolDir, 'src', 'js', 'core.js'),
+            fullfile(toolDir, 'src', 'js', 'ui.js')
+        };
+        for i = 1:numel(sourceAssets)
+            if ~isfile(sourceAssets{i})
+                continue;
+            end
+            srcInfo = dir(sourceAssets{i});
+            if srcInfo.datenum > bndInfo.datenum
+                needsBundle = true;
+                break;
+            end
+        end
     end
     if needsBundle
         ok = eqtool_bundle(srcFile, bundled);

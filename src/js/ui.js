@@ -7,6 +7,7 @@
   const state = {
     currentMode: 'm2s',
     mqField: null,
+    isNormalizingEdit: false,
     isVec: false,
     currentToks: [],
     ambigPairs: [],
@@ -44,6 +45,86 @@
       const color = entry[1];
       return '<div class="legend-item" style="color:' + color[0] + ';background:' + color[1] + '22;border-color:' + color[0] + '55">' + name + '</div>';
     }).join('');
+  }
+
+  function renderM2SParenWarnings(rawInput) {
+    const warnEl = byId('m2s-paren-warn');
+    if (!warnEl) {
+      return;
+    }
+
+    const lines = rawInput.split(/\r?\n/);
+    const items = [];
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      if (!line.trim()) {
+        continue;
+      }
+      const mismatch = core.findParenMismatch(line);
+      if (!mismatch.hasMismatch) {
+        continue;
+      }
+
+      const parts = [];
+      if (mismatch.unmatchedOpen.length) {
+        parts.push(mismatch.unmatchedOpen.length + ' opening');
+      }
+      if (mismatch.unmatchedClose.length) {
+        parts.push(mismatch.unmatchedClose.length + ' closing');
+      }
+
+      const title = 'Line ' + (i + 1) + ': unmatched parenthesis (' + parts.join(', ') + ')';
+      const src = core.highlightParenMismatch(line, mismatch);
+      items.push(
+        '<div class="m2s-warn-item" data-line-index="' + i + '">' +
+        title +
+        ' <button class="warn-fix-btn" data-line-index="' + i + '">auto-fix</button>' +
+        '<span class="m2s-warn-src" data-line-index="' + i + '">' + src + '</span></div>'
+      );
+    }
+
+    if (!items.length) {
+      warnEl.classList.add('hidden');
+      warnEl.innerHTML = '';
+      return;
+    }
+
+    warnEl.classList.remove('hidden');
+    warnEl.innerHTML = items.join('');
+  }
+
+  function syncM2SInputOverlay(raw) {
+    const wrap = byId('m2s-input-wrap');
+    const overlay = byId('m2s-input-color');
+    const input = byId('m2s-input');
+
+    if (!wrap || !overlay || !input) {
+      return;
+    }
+
+    if (!raw.trim()) {
+      wrap.classList.remove('has-content');
+      overlay.innerHTML = '';
+      return;
+    }
+
+    wrap.classList.add('has-content');
+    overlay.innerHTML = core.colorizeMatlabSource(raw);
+    overlay.scrollTop = input.scrollTop;
+    overlay.scrollLeft = input.scrollLeft;
+  }
+
+  function applyM2SParenFix(lineIndex) {
+    const input = byId('m2s-input');
+    const lines = input.value.split(/\r?\n/);
+    const idx = Number(lineIndex);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= lines.length) {
+      return;
+    }
+
+    lines[idx] = core.autoFixParenLine(lines[idx]);
+    input.value = lines.join('\n');
+    renderM2S();
   }
 
   function buildRawCode() {
@@ -99,8 +180,9 @@
     if (!state.mqField) {
       return;
     }
-    state.mqField.latex(core.EXAMPLES_S2M[index]);
-    renderS2M(core.EXAMPLES_S2M[index]);
+    const normalized = core.normalizeParenLatex(core.EXAMPLES_S2M[index]);
+    state.mqField.latex(normalized);
+    renderS2M(normalized);
   }
 
   function renderM2S() {
@@ -110,15 +192,22 @@
 
     if (!raw.trim()) {
       out.innerHTML = '<span class="eq-ph">rendered equation appears here</span>';
+      syncM2SInputOverlay(raw);
       byId('m2s-legend').innerHTML = '';
+      renderM2SParenWarnings('');
       state.lastLatex = '';
       return;
     }
+
+    syncM2SInputOverlay(raw);
+
+    renderM2SParenWarnings(raw);
 
     const lines = core.splitLines(raw);
     if (!lines.length) {
       out.innerHTML = '<span class="eq-ph">rendered equation appears here</span>';
       byId('m2s-legend').innerHTML = '';
+      renderM2SParenWarnings(raw);
       state.lastLatex = '';
       return;
     }
@@ -286,7 +375,21 @@
       spaceBehavesLikeTab: true,
       handlers: {
         edit: function () {
-          renderS2M(state.mqField.latex());
+          if (state.isNormalizingEdit) {
+            return;
+          }
+
+          const rawLatex = state.mqField.latex();
+          const normalized = core.normalizeParenLatex(rawLatex);
+          if (normalized !== rawLatex) {
+            state.isNormalizingEdit = true;
+            state.mqField.latex(normalized);
+            state.isNormalizingEdit = false;
+            renderS2M(normalized);
+            return;
+          }
+
+          renderS2M(rawLatex);
         }
       }
     });
@@ -308,8 +411,11 @@
       }
 
       evt.preventDefault();
-      state.mqField.latex(pasted);
-      renderS2M(pasted);
+      const normalized = core.normalizeParenLatex(pasted);
+      // Insert at cursor position instead of replacing entire field
+      state.mqField.write(normalized);
+      const fullLatex = state.mqField.latex();
+      renderS2M(fullLatex);
       state.mqField.focus();
     });
   }
@@ -317,11 +423,38 @@
   function bindEvents() {
     byId('flip-btn').addEventListener('click', flipMode);
     byId('m2s-input').addEventListener('input', renderM2S);
+    byId('m2s-input').addEventListener('scroll', function () {
+      const overlay = byId('m2s-input-color');
+      const input = byId('m2s-input');
+      if (!overlay || !input) {
+        return;
+      }
+      overlay.scrollTop = input.scrollTop;
+      overlay.scrollLeft = input.scrollLeft;
+    });
     byId('m2s-demo-btn').addEventListener('click', function () { loadEx1(0); });
     byId('s2m-demo-btn').addEventListener('click', function () { loadEx2(0); });
     byId('sym-copy-btn').addEventListener('click', copyLatex);
     byId('vec-btn').addEventListener('click', toggleVec);
     byId('copy-btn').addEventListener('click', copyCode);
+    byId('m2s-paren-warn').addEventListener('click', function (evt) {
+      const target = evt.target;
+      if (!target) {
+        return;
+      }
+
+      const directLine = target.getAttribute && target.getAttribute('data-line-index');
+      if (directLine !== null) {
+        applyM2SParenFix(directLine);
+        return;
+      }
+
+      const row = target.closest ? target.closest('.m2s-warn-item') : null;
+      if (!row) {
+        return;
+      }
+      applyM2SParenFix(row.getAttribute('data-line-index'));
+    });
   }
 
   function init() {
