@@ -394,6 +394,13 @@
       return '\\log_{' + base + '}\\left(' + arg + '\\right)';
     });
 
+    // Plain typed explicit base-log input should treat trailing variables/numbers as
+    // the argument, not as part of the base: log_10a -> \log_{10}\left(a\right).
+    // Parenthesized bases (e.g. log_(10a)b) are intentionally not matched here.
+    out = out.replace(/(^|[^\\a-zA-Z])log_\{?(10|2)\}?\s*([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)(?!\s*(?:\\left\s*\(|\())/g, function (_m, pre, base, arg) {
+      return pre + '\\log_{' + base + '}\\left(' + arg + '\\right)';
+    });
+
     // Compact plain log numeric input: \log1 -> \log\left(1\right), \log101 -> \log\left(101\right).
     out = out.replace(/\\log(?!_)\s*([0-9]+(?:\.[0-9]+)?)/g, function (_m, value) {
       return '\\log\\left(' + value + '\\right)';

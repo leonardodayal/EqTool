@@ -287,6 +287,16 @@ test('normalizeCompactLogInput wraps compact explicit base-log numeric input', (
   assert.equal(out, '\\log_{10}\\left(1\\right) + \\log_{2}\\left(3\\right)');
 });
 
+test('normalizeCompactLogInput wraps plain typed explicit base-log variable input', () => {
+  const out = core.normalizeCompactLogInput('log_10a + log_2x');
+  assert.equal(out, '\\log_{10}\\left(a\\right) + \\log_{2}\\left(x\\right)');
+});
+
+test('normalizeCompactLogInput keeps parenthesized explicit base forms unchanged', () => {
+  const out = core.normalizeCompactLogInput('log_(10a)b');
+  assert.equal(out, 'log_(10a)b');
+});
+
 test('normalizeCompactLogInput leaves bare explicit base-log constants unchanged', () => {
   const out = core.normalizeCompactLogInput('\\log_{10}+x');
   assert.equal(out, '\\log_{10}+x');
