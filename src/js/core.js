@@ -35,7 +35,7 @@
     varrho: 'varrho', sigma: 'sigma', varsigma: 'varsigma', tau: 'tau', upsilon: 'upsilon',
     phi: 'phi', varphi: 'varphi', chi: 'chi', psi: 'psi', omega: 'omega',
     // Uppercase Greek.
-    Gamma: 'Gamma', Delta: 'delta', Theta: 'Theta', Lambda: 'Lambda', Xi: 'Xi', Pi: 'Pi',
+    Gamma: 'Gamma', Delta: 'Delta', Theta: 'Theta', Lambda: 'Lambda', Xi: 'Xi', Pi: 'Pi',
     Sigma: 'Sigma', Upsilon: 'Upsilon', Phi: 'Phi', Psi: 'Psi', Omega: 'Omega',
     // Common math symbols used as named identifiers.
     partial: 'partial', nabla: 'nabla', ell: 'ell', hbar: 'hbar', aleph: 'aleph', wp: 'wp',

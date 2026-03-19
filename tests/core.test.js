@@ -19,7 +19,12 @@ test('parseMatlab + astTex render trig power and fraction forms', () => {
 
 test('l2m converts inverse trig and greek spacing', () => {
   const code = core.l2m('\\cos^{-1}\\left(\\alpha_0\\right)+\\Delta t');
-  assert.equal(code, 'acos(alpha_0)+delta * t');
+  assert.equal(code, 'acos(alpha_0)+Delta * t');
+});
+
+test('l2m preserves uppercase Delta and lowercase delta distinctly', () => {
+  const code = core.l2m('\\Delta \\delta');
+  assert.equal(code, 'Delta * delta');
 });
 
 test('l2m converts Gamma and zeta function product without backslash leakage', () => {
