@@ -635,6 +635,14 @@
     return parts.join(' * ');
   }
 
+  function buildAlternationPattern(words) {
+    return words
+      .slice()
+      .sort(function (a, b) { return b.length - a.length; })
+      .map(function (w) { return w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
+      .join('|');
+  }
+
   function replaceLatexSymbolCommand(src, cmdName, mapped) {
     const cmd = '\\' + cmdName;
     let out = '';
@@ -941,7 +949,8 @@
     // Handle functions followed directly by parentheses with optional whitespace, e.g. cos (1) -> cos(1).
     s = s.replace(new RegExp('\\b(' + callableFnPattern + ')\\s+\\(', 'g'), '$1(');
 
-    s = s.replace(/(delta|alpha|beta|gamma|rho|mu|theta|omega|sigma|phi|lambda|pi|eta|nu|xi|tau|epsilon|zeta|varepsilon|vartheta|varpi|varrho|varsigma|upsilon|varphi|chi|psi|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega|partial|nabla|ell|hbar|aleph|wp|Re|Im|imath|jmath)\s+([a-zA-Z_][a-zA-Z0-9_]*)/g, function (_m, g, r) {
+    const symbolicWordPattern = buildAlternationPattern(Array.from(SYMBOLIC_WORDS));
+    s = s.replace(new RegExp('(' + symbolicWordPattern + ')\\s+([a-zA-Z_][a-zA-Z0-9_]*)', 'g'), function (_m, g, r) {
       return g + ' * ' + r;
     });
 
