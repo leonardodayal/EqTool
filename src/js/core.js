@@ -899,6 +899,10 @@
       return n + ' * ' + v;
     });
 
+    // Convert compact single-letter variable-digit tokens into subscripts,
+    // e.g. a12 -> a_{12}. Keep this narrow to avoid rewriting multi-letter names.
+    s = s.replace(/\b([a-zA-Z])([0-9]+)\b/g, '$1_{$2}');
+
     // Restore protected subscript text.
     for (let i = 0; i < subscriptProtections.length; i += 1) {
       s = s.replace(new RegExp(subscriptProtections[i].key, 'g'), subscriptProtections[i].sub);

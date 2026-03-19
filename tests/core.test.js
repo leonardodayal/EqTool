@@ -197,6 +197,11 @@ test('l2m inserts multiplication between parenthesis and number', () => {
   assert.equal(code, '(x) * 3 + (a + b) * 2.5 + sin(x) * 10');
 });
 
+test('l2m converts compact single-letter digit token after multiplication into subscript', () => {
+  const code = core.l2m('\\left(x\\right)332a12');
+  assert.equal(code, '(x) * 332 * a_{12}');
+});
+
 test('l2m preserves consecutive trig functions with proper spacing and multiplication', () => {
   const code = core.l2m('\\sin a\\cos \\left(1\\right)');
   assert.equal(code, 'sin(a) * cos(1)');
