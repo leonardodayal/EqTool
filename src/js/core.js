@@ -879,6 +879,10 @@
     // identifier, e.g. log(1234)a -> log(1234) * a.
     s = s.replace(/\)\s*([a-zA-Z_][a-zA-Z0-9_]*|QVARPROT[A-Z]+Q)(?!\s*\()/g, ') * $1');
 
+    // Insert multiplication between a closed group/function call and a following number,
+    // e.g. (x)3 -> (x) * 3.
+    s = s.replace(/\)\s*([0-9]+\.?[0-9]*)/g, ') * $1');
+
     // Insert multiplication between a number and a following opening parenthesis,
     // e.g. 3(x) -> 3 * (x), but not for function names like log10, log2.
     // Ensure we don't match when the number is part of "log10", "log2", etc.
