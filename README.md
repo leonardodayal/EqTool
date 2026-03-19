@@ -1,6 +1,6 @@
 # EqTool — MATLAB Bidirectional Equation Visualizer
 
-**Current File Exchange Version:** v1.2.1
+**Current File Exchange Version:** v1.2.2
 
 A bidirectional equation tool that runs inside MATLAB. Paste MATLAB code to see it rendered as symbolic math, or type equations in a live editor to generate valid MATLAB code.
 
@@ -8,8 +8,7 @@ A bidirectional equation tool that runs inside MATLAB. Paste MATLAB code to see 
 
 Launch EqTool in either of these ways:
 
-1. **Apps tab (recommended)**: click **Launch EqTool**
-2. **Command Window**: run `EqTool`
+1. **Command Window**: run `EqTool`
 
 ![EqTool screenshot](screenshot.png)
 

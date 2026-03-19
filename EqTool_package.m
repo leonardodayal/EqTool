@@ -8,8 +8,6 @@ function EqTool_package()
 %   >> cd('/path/to/EqTool/folder')
 %   >> EqTool_package()
 %
-% Note: For Apps tab icon support, include LaunchEqTool.mlapp in this folder.
-%
 % Requirements: MATLAB R2023a or later (for ToolboxOptions API)
 
     toolDir = fileparts(mfilename('fullpath'));
@@ -20,8 +18,6 @@ function EqTool_package()
     % Check source files exist
     required = {
         'EqTool.m',
-        'LaunchEqTool.m',
-        'LaunchEqTool.mlapp',
         'matlab_equation_tool.html',
         fullfile('styles', 'main.css'),
         fullfile('src', 'js', 'core.js'),
@@ -36,8 +32,6 @@ function EqTool_package()
 
     outFile  = fullfile(toolDir, 'EqTool.mltbx');
     eqtoolM  = fullfile(toolDir, 'EqTool.m');
-    launchEqToolM = fullfile(toolDir, 'LaunchEqTool.m');
-    launchEqToolApp = fullfile(toolDir, 'LaunchEqTool.mlapp');
     eqtoolH  = fullfile(toolDir, 'matlab_equation_tool.html');
     eqtoolCSS = fullfile(toolDir, 'styles', 'main.css');
     eqtoolCore = fullfile(toolDir, 'src', 'js', 'core.js');
@@ -49,13 +43,12 @@ function EqTool_package()
     opts = matlab.addons.toolbox.ToolboxOptions(toolDir, uuid);
 
     opts.ToolboxName          = 'EqTool';
-    opts.ToolboxVersion       = '1.2.1';
+    opts.ToolboxVersion       = '1.2.2';
     opts.AuthorName           = '';
     opts.AuthorEmail          = '';
-    opts.Summary              = 'Install and launch from Apps (Launch EqTool) or run EqTool in Command Window.';
+    opts.Summary              = 'Launch by running EqTool in the MATLAB Command Window.';
     opts.Description          = [ ...
-        'After install, launch from the Apps tab by clicking "Launch EqTool", ' ...
-        'or run EqTool in the Command Window. ' ...
+        'After install, launch by running EqTool in the MATLAB Command Window. ' ...
         'EqTool converts MATLAB code expressions into rendered symbolic math ' ...
         'and back. Features color-coded variable highlighting, proper fractions, ' ...
         'radicals, trig powers, and a live equation editor. ' ...
@@ -65,11 +58,8 @@ function EqTool_package()
     opts.OutputFile           = outFile;
     opts.ToolboxMatlabPath    = {toolDir};
 
-    % Include launcher, App Designer app, HTML shell, and local split assets.
-    opts.ToolboxFiles = {eqtoolM; launchEqToolM; launchEqToolApp; eqtoolH; eqtoolCSS; eqtoolCore; eqtoolUI};
-
-    % Register App Designer launcher in the Apps gallery for visible app icon.
-    opts.AppGalleryFiles = {launchEqToolApp};
+    % Include launcher, HTML shell, and local split assets.
+    opts.ToolboxFiles = {eqtoolM; eqtoolH; eqtoolCSS; eqtoolCore; eqtoolUI};
 
     try
         matlab.addons.toolbox.packageToolbox(opts);
@@ -80,7 +70,7 @@ function EqTool_package()
         fprintf('  3. Upload to MATLAB File Exchange for public distribution\n');
     catch e
         fprintf('\nPackaging failed: %s\n\n', e.message);
-        fprintf('Make sure EqTool.m, LaunchEqTool.mlapp, and matlab_equation_tool.html\n');
+        fprintf('Make sure both EqTool.m and matlab_equation_tool.html\n');
         fprintf('are in the same folder and that folder is your current directory.\n');
     end
 end
