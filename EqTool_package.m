@@ -8,6 +8,8 @@ function EqTool_package()
 %   >> cd('/path/to/EqTool/folder')
 %   >> EqTool_package()
 %
+% Note: For Apps tab icon support, include LaunchEqTool.mlapp in this folder.
+%
 % Requirements: MATLAB R2023a or later (for ToolboxOptions API)
 
     toolDir = fileparts(mfilename('fullpath'));
@@ -19,6 +21,7 @@ function EqTool_package()
     required = {
         'EqTool.m',
         'LaunchEqTool.m',
+        'LaunchEqTool.mlapp',
         'matlab_equation_tool.html',
         fullfile('styles', 'main.css'),
         fullfile('src', 'js', 'core.js'),
@@ -34,6 +37,7 @@ function EqTool_package()
     outFile  = fullfile(toolDir, 'EqTool.mltbx');
     eqtoolM  = fullfile(toolDir, 'EqTool.m');
     launchEqToolM = fullfile(toolDir, 'LaunchEqTool.m');
+    launchEqToolApp = fullfile(toolDir, 'LaunchEqTool.mlapp');
     eqtoolH  = fullfile(toolDir, 'matlab_equation_tool.html');
     eqtoolCSS = fullfile(toolDir, 'styles', 'main.css');
     eqtoolCore = fullfile(toolDir, 'src', 'js', 'core.js');
@@ -45,7 +49,7 @@ function EqTool_package()
     opts = matlab.addons.toolbox.ToolboxOptions(toolDir, uuid);
 
     opts.ToolboxName          = 'EqTool';
-    opts.ToolboxVersion       = '1.2.0';
+    opts.ToolboxVersion       = '1.2.1';
     opts.AuthorName           = '';
     opts.AuthorEmail          = '';
     opts.Summary              = 'Install and launch from Apps (Launch EqTool) or run EqTool in Command Window.';
@@ -61,11 +65,11 @@ function EqTool_package()
     opts.OutputFile           = outFile;
     opts.ToolboxMatlabPath    = {toolDir};
 
-    % Include launcher, HTML shell, and local split assets.
-    opts.ToolboxFiles = {eqtoolM; launchEqToolM; eqtoolH; eqtoolCSS; eqtoolCore; eqtoolUI};
+    % Include launcher, App Designer app, HTML shell, and local split assets.
+    opts.ToolboxFiles = {eqtoolM; launchEqToolM; launchEqToolApp; eqtoolH; eqtoolCSS; eqtoolCore; eqtoolUI};
 
-    % Register a clearly named launcher in the Apps gallery.
-    opts.AppGalleryFiles = {launchEqToolM};
+    % Register App Designer launcher in the Apps gallery for visible app icon.
+    opts.AppGalleryFiles = {launchEqToolApp};
 
     try
         matlab.addons.toolbox.packageToolbox(opts);
@@ -76,7 +80,7 @@ function EqTool_package()
         fprintf('  3. Upload to MATLAB File Exchange for public distribution\n');
     catch e
         fprintf('\nPackaging failed: %s\n\n', e.message);
-        fprintf('Make sure both EqTool.m and matlab_equation_tool.html\n');
+        fprintf('Make sure EqTool.m, LaunchEqTool.mlapp, and matlab_equation_tool.html\n');
         fprintf('are in the same folder and that folder is your current directory.\n');
     end
 end

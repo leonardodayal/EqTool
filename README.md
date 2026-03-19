@@ -1,6 +1,6 @@
 # EqTool — MATLAB Bidirectional Equation Visualizer
 
-**Current File Exchange Version:** v1.2.0
+**Current File Exchange Version:** v1.2.1
 
 A bidirectional equation tool that runs inside MATLAB. Paste MATLAB code to see it rendered as symbolic math, or type equations in a live editor to generate valid MATLAB code.
 
