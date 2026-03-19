@@ -797,6 +797,9 @@
     // Preserve multiplication between adjacent braced identifiers,
     // e.g. {asss}{aass} -> QVARPROTAQ * QVARPROTBQ.
     s = s.replace(/(QVARPROT[A-Z]+Q)\s*(QVARPROT[A-Z]+Q)/g, '$1 * $2');
+    // Preserve multiplication when a braced identifier is followed by an identifier,
+    // e.g. {bbb}a -> QVARPROTAQ * a.
+    s = s.replace(/(QVARPROT[A-Z]+Q)\s*([a-zA-Z_][a-zA-Z0-9_]*)/g, '$1 * $2');
     s = s.replace(/\^([a-zA-Z0-9])/g, '^$1');
     s = s.replace(/\s+/g, ' ').trim();
 

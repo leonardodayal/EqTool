@@ -222,6 +222,11 @@ test('l2m inserts multiplication between adjacent braced identifiers', () => {
   assert.equal(code, 'asss * aass');
 });
 
+test('l2m inserts multiplication between braced identifier and following identifier', () => {
+  const code = core.l2m('\\left\\{bbb\\right\\}a');
+  assert.equal(code, 'bbb * a');
+});
+
 test('normalizeParenLatex wraps plain parentheses with left/right', () => {
   const out = core.normalizeParenLatex('(x(x^2))');
   assert.equal(out, '\\left(x\\left(x^2\\right)\\right)');
