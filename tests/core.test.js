@@ -217,6 +217,11 @@ test('l2m inserts multiplication for longer chained function calls', () => {
   assert.equal(code, 'log(2) * sin(3) * ceil(4) * a');
 });
 
+test('l2m inserts multiplication between adjacent braced identifiers', () => {
+  const code = core.l2m('\\left\\{asss\\right\\}\\left\\{aass\\right\\}');
+  assert.equal(code, 'asss * aass');
+});
+
 test('normalizeParenLatex wraps plain parentheses with left/right', () => {
   const out = core.normalizeParenLatex('(x(x^2))');
   assert.equal(out, '\\left(x\\left(x^2\\right)\\right)');
