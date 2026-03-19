@@ -849,21 +849,22 @@
     s = s.replace(/QLOGBASE10FNQ/g, 'log10');
     s = s.replace(/QLOGBASE2FNQ/g, 'log2');
 
-    const fnNoParen = '(?:arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|sqrt|floor|ceil|log10|log2|sin|cos|tan|cot|sec|csc|exp|abs|log|ln|atan2|nthroot)';
-    s = s.replace(new RegExp('\\b(' + fnNoParen + ')\\s+([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\\.[0-9]+)?|QVARPROT[A-Z]+Q)(?!\\s*\\()', 'g'), function (_m, fn, arg) {
+    const callableFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|sqrt|floor|ceil|log10|log2|sin|cos|tan|cot|sec|csc|exp|abs|log|ln|atan2|nthroot';
+    const knownFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|floor|ceil|log10|log2|sqrt|sin|cos|tan|cot|sec|csc|exp|log|ln|abs';
+
+    s = s.replace(new RegExp('\\b(' + callableFnPattern + ')\\s+([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\\.[0-9]+)?|QVARPROT[A-Z]+Q)(?!\\s*\\()', 'g'), function (_m, fn, arg) {
       return fn + '(' + arg + ')';
     });
 
     // Handle functions followed directly by parentheses with optional whitespace, e.g. cos (1) -> cos(1).
-    s = s.replace(new RegExp('\\b(' + fnNoParen + ')\\s+\\(', 'g'), '$1(');
+    s = s.replace(new RegExp('\\b(' + callableFnPattern + ')\\s+\\(', 'g'), '$1(');
 
     s = s.replace(/(delta|alpha|beta|gamma|rho|mu|theta|omega|sigma|phi|lambda|pi|eta|nu|xi|tau|epsilon|zeta)\s+([a-zA-Z_][a-zA-Z0-9_]*)/g, function (_m, g, r) {
       return g + ' * ' + r;
     });
 
-    const knownFn = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|floor|ceil|log10|log2|sqrt|sin|cos|tan|cot|sec|csc|exp|log|ln|abs';
     const protectedNames = new Set(['asin', 'acos', 'atan', 'asinh', 'acosh', 'atanh', 'acot', 'asec', 'acsc']);
-    s = s.replace(new RegExp('([a-zA-Z_][a-zA-Z0-9_]*)(' + knownFn + ')\\(', 'g'), function (_m, pre, fn) {
+    s = s.replace(new RegExp('([a-zA-Z_][a-zA-Z0-9_]*)(' + knownFnPattern + ')\\(', 'g'), function (_m, pre, fn) {
       const combined = pre + fn;
       if (protectedNames.has(combined)) {
         return combined + '(';
@@ -919,8 +920,7 @@
     s = s.replace(/\)\s*\(/g, ') * (');
 
     // Insert explicit multiplication between closing paren and a function name, e.g. sin(a) cos(1) -> sin(a) * cos(1).
-    const fnName = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|floor|ceil|log10|log2|sqrt|sin|cos|tan|cot|sec|csc|exp|log|ln|abs|atan2|nthroot';
-    s = s.replace(new RegExp('\\)\\s*(' + fnName + ')\\(', 'g'), ') * $1(');
+    s = s.replace(new RegExp('\\)\\s*(' + callableFnPattern + ')\\(', 'g'), ') * $1(');
 
     s = restoreBracedIdentifiers(s, prot.saved);
     return s.replace(/\s+/g, ' ').trim();
