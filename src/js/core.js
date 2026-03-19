@@ -474,6 +474,17 @@
     return token.split('').join(' * ');
   }
 
+  function splitSubscriptedBase(base, sub) {
+    const expanded = splitAlphaRun(base, 0, base);
+    if (expanded.indexOf(' * ') === -1) {
+      return base + '_' + sub;
+    }
+
+    const parts = expanded.split(' * ');
+    parts[parts.length - 1] = parts[parts.length - 1] + '_' + sub;
+    return parts.join(' * ');
+  }
+
   function l2m(src) {
     let s = src.trim();
     let prot = { text: s, saved: [] };
@@ -601,6 +612,12 @@
     for (let i = 0; i < subscriptProtections.length; i += 1) {
       s = s.replace(new RegExp(subscriptProtections[i].key, 'g'), subscriptProtections[i].sub);
     }
+
+    // Split multi-letter bases while keeping the subscript on the last base symbol,
+    // e.g. ASDF_GH -> A * S * D * F_GH.
+    s = s.replace(/\b([a-zA-Z]{2,})_([a-zA-Z0-9]+)\b/g, function (_m, base, sub) {
+      return splitSubscriptedBase(base, sub);
+    });
 
     // Split mixed-case symbol runs into separate multiplicative factors, e.g. nIL -> n * I * L.
     s = s.replace(/\b([a-zA-Z][a-zA-Z0-9]*)\b/g, function (_m, tok, off, full) {

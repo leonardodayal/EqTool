@@ -42,6 +42,11 @@ test('l2m preserves explicitly braced mixed subscript text', () => {
   assert.equal(code, 'M_1N^2');
 });
 
+test('l2m splits multi-letter base and keeps trailing subscript', () => {
+  const code = core.l2m('ASDF_{GH}');
+  assert.equal(code, 'A * S * D * F_GH');
+});
+
 test('l2m keeps braced identifier as one variable', () => {
   const code = core.l2m('{nIL}');
   assert.equal(code, 'nIL');
