@@ -45,7 +45,7 @@ function EqTool_package()
     opts = matlab.addons.toolbox.ToolboxOptions(toolDir, uuid);
 
     opts.ToolboxName          = 'EqTool';
-    opts.ToolboxVersion       = '1.0.0';
+    opts.ToolboxVersion       = '1.2.0';
     opts.AuthorName           = '';
     opts.AuthorEmail          = '';
     opts.Summary              = 'Install and launch from Apps (Launch EqTool) or run EqTool in Command Window.';
