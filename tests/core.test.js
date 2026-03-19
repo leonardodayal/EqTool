@@ -22,6 +22,16 @@ test('l2m converts inverse trig and greek spacing', () => {
   assert.equal(code, 'acos(alpha_0)+delta * t');
 });
 
+test('l2m inserts multiplication between adjacent parenthesized groups', () => {
+  const code = core.l2m('\\left(4x\\right)\\left(x\\right)');
+  assert.equal(code, '(4 * x) * (x)');
+});
+
+test('l2m handles nested stacked powers with braces', () => {
+  const code = core.l2m('\\frac{x^{2-x^{2-4^{-4}}}}{d}');
+  assert.equal(code, '(x^(2-x^(2-4^(-4))))/(d)');
+});
+
 test('splitLines handles continuation, semicolons, comments, and vector ops', () => {
   const src = 'a = 2 .* x ...\n + 3;\n% skip this\nb = y.^2;';
   const lines = core.splitLines(src);

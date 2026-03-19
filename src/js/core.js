@@ -310,6 +310,26 @@
     return out;
   }
 
+  function convertSuperscripts(expr) {
+    let out = '';
+    let i = 0;
+
+    while (i < expr.length) {
+      if (expr[i] === '^' && expr[i + 1] === '{') {
+        const braced = exBraced(expr, i + 1);
+        const inner = convertSuperscripts(braced[0].trim());
+        out += '^(' + inner + ')';
+        i = braced[1];
+        continue;
+      }
+
+      out += expr[i];
+      i += 1;
+    }
+
+    return out;
+  }
+
   function l2m(src) {
     let s = src.trim();
 
@@ -359,10 +379,7 @@
 
     s = s.replace(/([a-zA-Z0-9_]+)_\{([^}]+)\}/g, '$1_$2');
     s = s.replace(/([a-zA-Z0-9_]+)_([a-zA-Z0-9])/g, '$1_$2');
-    s = s.replace(/\^\{([^}]+)\}/g, function (_m, e) {
-      const et = e.trim();
-      return /^[a-zA-Z0-9_]+$/.test(et) ? '^' + et : '^(' + et + ')';
-    });
+    s = convertSuperscripts(s);
     s = s.replace(/\^([a-zA-Z0-9])/g, '^$1');
     s = s.replace(/\s+/g, ' ').trim();
 
@@ -392,6 +409,9 @@
     s = s.replace(/([0-9]+\.?[0-9]*)([a-zA-Z_][a-zA-Z0-9_]*)/g, function (_m, n, v) {
       return n + ' * ' + v;
     });
+
+    // Insert explicit multiplication for adjacent parenthesized groups, e.g. (4*x)(x) -> (4*x) * (x).
+    s = s.replace(/\)\s*\(/g, ') * (');
 
     return s.replace(/\s+/g, ' ').trim();
   }
