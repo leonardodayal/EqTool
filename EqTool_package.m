@@ -18,6 +18,7 @@ function EqTool_package()
     % Check source files exist
     required = {
         'EqTool.m',
+        'LaunchEqTool.m',
         'matlab_equation_tool.html',
         fullfile('styles', 'main.css'),
         fullfile('src', 'js', 'core.js'),
@@ -32,6 +33,7 @@ function EqTool_package()
 
     outFile  = fullfile(toolDir, 'EqTool.mltbx');
     eqtoolM  = fullfile(toolDir, 'EqTool.m');
+    launchEqToolM = fullfile(toolDir, 'LaunchEqTool.m');
     eqtoolH  = fullfile(toolDir, 'matlab_equation_tool.html');
     eqtoolCSS = fullfile(toolDir, 'styles', 'main.css');
     eqtoolCore = fullfile(toolDir, 'src', 'js', 'core.js');
@@ -46,8 +48,10 @@ function EqTool_package()
     opts.ToolboxVersion       = '1.0.0';
     opts.AuthorName           = '';
     opts.AuthorEmail          = '';
-    opts.Summary              = 'Bidirectional MATLAB equation visualizer with live symbolic rendering.';
+    opts.Summary              = 'Install and launch from Apps (Launch EqTool) or run EqTool in Command Window.';
     opts.Description          = [ ...
+        'After install, launch from the Apps tab by clicking "Launch EqTool", ' ...
+        'or run EqTool in the Command Window. ' ...
         'EqTool converts MATLAB code expressions into rendered symbolic math ' ...
         'and back. Features color-coded variable highlighting, proper fractions, ' ...
         'radicals, trig powers, and a live equation editor. ' ...
@@ -58,10 +62,10 @@ function EqTool_package()
     opts.ToolboxMatlabPath    = {toolDir};
 
     % Include launcher, HTML shell, and local split assets.
-    opts.ToolboxFiles = {eqtoolM; eqtoolH; eqtoolCSS; eqtoolCore; eqtoolUI};
+    opts.ToolboxFiles = {eqtoolM; launchEqToolM; eqtoolH; eqtoolCSS; eqtoolCore; eqtoolUI};
 
-    % Register EqTool.m in the Apps gallery
-    opts.AppGalleryFiles = {eqtoolM};
+    % Register a clearly named launcher in the Apps gallery.
+    opts.AppGalleryFiles = {launchEqToolM};
 
     try
         matlab.addons.toolbox.packageToolbox(opts);

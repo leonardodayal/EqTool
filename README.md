@@ -1,5 +1,12 @@
 # EqTool — MATLAB Bidirectional Equation Visualizer
 
+## Quick Start (After Install)
+
+Launch EqTool in either of these ways:
+
+1. **Apps tab**: click **Launch EqTool**
+2. **Command Window**: run `EqTool`
+
 A bidirectional equation tool that runs inside MATLAB. Paste MATLAB code to see it rendered as symbolic math, or type equations in a live editor to generate valid MATLAB code.
 
 ![EqTool screenshot](screenshot.png)
