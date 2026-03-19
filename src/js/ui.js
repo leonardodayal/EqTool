@@ -374,6 +374,12 @@
     const MQ = MathQuill.getInterface(2);
     state.mqField = MQ.MathField(byId('mq-field'), {
       spaceBehavesLikeTab: true,
+      leftRightIntoCmdGoes: 'up',
+      restrictMismatchedBrackets: true,
+      supSubsRequireOperand: true,
+      charsThatBreakOutOfSupSub: '+-=<>',
+      autoCommands: 'pi theta rho sqrt',
+      autoOperatorNames: 'sin cos tan cot sec csc sinh cosh tanh asin acos atan acot asec acsc asinh acosh atanh exp log ln sqrt abs floor ceil',
       handlers: {
         edit: function () {
           if (state.isNormalizingEdit) {

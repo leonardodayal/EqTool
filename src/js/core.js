@@ -628,6 +628,21 @@
     return parts.join(' * ');
   }
 
+  // Helper function to find the matching closing brace for a given opening brace position
+  function findMatchingBrace(str, openPos) {
+    if (str[openPos] !== '{') return -1;
+    let depth = 0;
+    for (let i = openPos; i < str.length; i++) {
+      if (str[i] === '{') {
+        depth += 1;
+      } else if (str[i] === '}') {
+        depth -= 1;
+        if (depth === 0) return i;
+      }
+    }
+    return -1;
+  }
+
   function l2m(src) {
     let s = src.trim();
     let prot = { text: s, saved: [] };
@@ -707,13 +722,44 @@
     s = s.replace(/\\cdot\s*/g, '*').replace(/\\times\s*/g, '*');
 
     s = exFrac(s);
-    s = s.replace(/\\sqrt\[([^\]]+)\]\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g, function (_m, n, inner) {
-      return 'nthroot(' + l2m(inner) + ',' + l2m(n) + ')';
-    });
-    s = s.replace(/\\sqrt\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g, function (_m, inner) {
-      return 'sqrt(' + l2m(inner) + ')';
-    });
-    s = s.replace(/\\sqrt\s*([0-9]+(?:\.[0-9]+)?)(?!\s*[\[{])/g, 'sqrt($1)');
+    
+    // Handle \sqrt[n]{arg} and \sqrt{arg} with proper nested brace matching
+    // Process iteratively to handle arbitrarily nested sqrt calls like \sqrt{\sqrt{\sqrt{x}}}
+    let changed = true;
+    while (changed) {
+      changed = false;
+      // First handle \sqrt[n]{...}
+      let match = s.match(/\\sqrt\[([^\]]+)\]\{/);
+      if (match) {
+        const openPos = match.index + match[0].length - 1;
+        const closePos = findMatchingBrace(s, openPos);
+        if (closePos !== -1) {
+          const n = match[1];
+          const inner = s.substring(openPos + 1, closePos);
+          s = s.substring(0, match.index) + 'nthroot(' + l2m(inner) + ',' + l2m(n) + ')' + s.substring(closePos + 1);
+          changed = true;
+          continue;
+        }
+      }
+      // Then handle \sqrt{...}
+      match = s.match(/\\sqrt\{/);
+      if (match) {
+        const openPos = match.index + match[0].length - 1;
+        const closePos = findMatchingBrace(s, openPos);
+        if (closePos !== -1) {
+          const inner = s.substring(openPos + 1, closePos);
+          s = s.substring(0, match.index) + 'sqrt(' + l2m(inner) + ')' + s.substring(closePos + 1);
+          changed = true;
+          continue;
+        }
+      }
+      // Handle \sqrt digit form (no braces)
+      match = s.match(/\\sqrt\s*([0-9]+(?:\.[0-9]+)?)(?!\s*[\[{])/);
+      if (match) {
+        s = s.substring(0, match.index) + 'sqrt(' + match[1] + ')' + s.substring(match.index + match[0].length);
+        changed = true;
+      }
+    }
 
     // Normalize all subscript forms into braced form first so explicit grouping is preserved.
     s = s.replace(/([a-zA-Z0-9_]+)\s+_\s*\{([^}]+)\}/g, '$1_{$2}');

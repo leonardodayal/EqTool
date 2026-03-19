@@ -182,6 +182,11 @@ test('l2m handles indexed square root form', () => {
   assert.equal(code, 'nthroot(4,1)');
 });
 
+test('l2m handles deeply nested square root expressions', () => {
+  const code = core.l2m('\\left(\\sqrt{\\sqrt{\\sqrt{x}}}\\right)');
+  assert.equal(code, '(sqrt(sqrt(sqrt(x))))');
+});
+
 test('l2m preserves consecutive trig functions with proper spacing and multiplication', () => {
   const code = core.l2m('\\sin a\\cos \\left(1\\right)');
   assert.equal(code, 'sin(a) * cos(1)');
