@@ -162,6 +162,20 @@ test('l2m keeps explicit parenthesized base-log as MATLAB log function', () => {
   assert.equal(code, 'log10(a) + log2(x)');
 });
 
+test('l2m throws for unsupported explicit numeric log base', () => {
+  assert.throws(
+    () => core.l2m('\\log_{3}x'),
+    /Unsupported logarithm base "3"/
+  );
+});
+
+test('l2m throws for unsupported symbolic log base', () => {
+  assert.throws(
+    () => core.l2m('\\log_{a}x'),
+    /Unsupported logarithm base "a"/
+  );
+});
+
 test('l2m treats plain log10 token as log of 10', () => {
   const code = core.l2m('log10');
   assert.equal(code, 'log(10)');
@@ -285,16 +299,6 @@ test('autoSubscriptVariableNumbers canonicalizes unbraced numeric subscripts aft
 test('normalizeCompactLogInput wraps compact explicit base-log numeric input', () => {
   const out = core.normalizeCompactLogInput('\\log_{10}1 + \\log_{2}3');
   assert.equal(out, '\\log_{10}\\left(1\\right) + \\log_{2}\\left(3\\right)');
-});
-
-test('normalizeCompactLogInput wraps plain typed explicit base-log variable input', () => {
-  const out = core.normalizeCompactLogInput('log_10a + log_2x');
-  assert.equal(out, '\\log_{10}\\left(a\\right) + \\log_{2}\\left(x\\right)');
-});
-
-test('normalizeCompactLogInput keeps parenthesized explicit base forms unchanged', () => {
-  const out = core.normalizeCompactLogInput('log_(10a)b');
-  assert.equal(out, 'log_(10a)b');
 });
 
 test('normalizeCompactLogInput leaves bare explicit base-log constants unchanged', () => {

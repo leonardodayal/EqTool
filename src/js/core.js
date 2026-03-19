@@ -394,13 +394,6 @@
       return '\\log_{' + base + '}\\left(' + arg + '\\right)';
     });
 
-    // Plain typed explicit base-log input should treat trailing variables/numbers as
-    // the argument, not as part of the base: log_10a -> \log_{10}\left(a\right).
-    // Parenthesized bases (e.g. log_(10a)b) are intentionally not matched here.
-    out = out.replace(/(^|[^\\a-zA-Z])log_\{?(10|2)\}?\s*([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)(?!\s*(?:\\left\s*\(|\())/g, function (_m, pre, base, arg) {
-      return pre + '\\log_{' + base + '}\\left(' + arg + '\\right)';
-    });
-
     // Compact plain log numeric input: \log1 -> \log\left(1\right), \log101 -> \log\left(101\right).
     out = out.replace(/\\log(?!_)\s*([0-9]+(?:\.[0-9]+)?)/g, function (_m, value) {
       return '\\log\\left(' + value + '\\right)';
@@ -625,6 +618,27 @@
     return parts.join(' * ');
   }
 
+  function assertSupportedLogBases(src) {
+    const supportedBases = new Set(['2', '10']);
+    const patterns = [
+      /(?:\\log|log)_\{([^}]+)\}/g,
+      /(?:\\log|log)_\(([^)]+)\)/g,
+      /(?:\\log|log)_([a-zA-Z0-9]+)\b/g
+    ];
+
+    for (let p = 0; p < patterns.length; p += 1) {
+      const re = patterns[p];
+      let m = re.exec(src);
+      while (m) {
+        const base = (m[1] || '').trim();
+        if (base && !supportedBases.has(base)) {
+          throw new Error('Unsupported logarithm base "' + base + '". Temporary limitation: only base 2 and 10 are supported.');
+        }
+        m = re.exec(src);
+      }
+    }
+  }
+
   // Helper function to find the matching closing brace for a given opening brace position
   function findMatchingBrace(str, openPos) {
     if (str[openPos] !== '{') return -1;
@@ -643,6 +657,9 @@
   function l2m(src) {
     let s = src.trim();
     let prot = { text: s, saved: [] };
+
+    // Temporary guard until change-of-base support is implemented.
+    assertSupportedLogBases(s);
 
     s = s.replace(/\\textcolor\{[^}]*\}\{([^}]*)\}/g, '$1');
     s = s.replace(/\\left\s*\(/g, '(').replace(/\\right\s*\)/g, ')');
