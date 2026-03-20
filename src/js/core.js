@@ -647,6 +647,15 @@
     let out = '';
     let i = 0;
 
+    function lastNonSpaceChar(text) {
+      for (let p = text.length - 1; p >= 0; p -= 1) {
+        if (!/\s/.test(text[p])) {
+          return text[p];
+        }
+      }
+      return '';
+    }
+
     while (i < src.length) {
       if (src[i] !== '\\') {
         out += src[i];
@@ -675,10 +684,12 @@
         continue;
       }
 
-      out += mapped;
-      if (src[j] === '\\') {
-        out += ' ';
+      const prev = lastNonSpaceChar(out);
+      if (/[a-zA-Z0-9_)]/.test(prev)) {
+        out += ' * ';
       }
+
+      out += mapped;
       i = j;
     }
 

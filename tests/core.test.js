@@ -42,6 +42,11 @@ test('l2m preserves adjacent lowercase-uppercase delta pair without whitespace',
   assert.equal(code, 'delta * Delta');
 });
 
+test('l2m inserts multiplication for identifier followed by Greek command', () => {
+  const code = core.l2m('a\\rho + b\\psi + c\\Gamma');
+  assert.equal(code, 'a * rho + b * psi + c * Gamma');
+});
+
 test('l2m converts Gamma and zeta function product without backslash leakage', () => {
   const code = core.l2m('\\Gamma \\left(s\\right)\\zeta \\left(s\\right)');
   assert.equal(code, 'Gamma (s) * zeta(s)');
