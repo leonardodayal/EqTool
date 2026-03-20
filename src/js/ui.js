@@ -285,6 +285,19 @@
       state.ambigRes = {};
       syncCodeDisplay();
     } catch (err) {
+      // Retry once with robust log-base auto-resolution before surfacing an error.
+      if (/Unsupported logarithm base/.test(err.message || '')) {
+        try {
+          const retried = core.l2m(resolveUnsupportedLogBases(latex));
+          state.currentToks = core.tokenize(retried);
+          state.ambigPairs = core.findAmbig(state.currentToks);
+          state.ambigRes = {};
+          syncCodeDisplay();
+          return;
+        } catch (_retryErr) {
+          // Fall through to show original error.
+        }
+      }
       el.innerHTML = '<span class="eq-err">' + err.message + '</span>';
     }
   }
@@ -294,7 +307,10 @@
       return latex;
     }
 
-    let out = latex;
+    const src = latex;
+    let out = '';
+    let i = 0;
+
     const isSupportedBase = function (base) {
       return base === '2' || base === '10';
     };
@@ -303,32 +319,123 @@
       return '\\frac{\\log\\left(' + arg + '\\right)}{\\log\\left(' + base + '\\right)}';
     };
 
-    // \log_{b}\left(x\right) -> \frac{\log\left(x\right)}{\log\left(b\right)} for unsupported bases.
-    out = out.replace(/\\log_\{([^}]+)\}\s*\\left\(([^()]*)\\right\)/g, function (_m, base, arg) {
-      const b = base.trim();
-      if (!b || isSupportedBase(b)) {
-        return _m;
+    const readBraced = function (text, start) {
+      if (text[start] !== '{') {
+        return null;
       }
-      return toChangeOfBase(b, arg);
-    });
+      let d = 0;
+      for (let p = start; p < text.length; p += 1) {
+        if (text[p] === '{') { d += 1; }
+        else if (text[p] === '}') {
+          d -= 1;
+          if (d === 0) {
+            return { value: text.slice(start + 1, p), end: p + 1 };
+          }
+        }
+      }
+      return null;
+    };
 
-    // \log_{b}(x) -> change-of-base for unsupported bases.
-    out = out.replace(/\\log_\{([^}]+)\}\s*\(([^()]*)\)/g, function (_m, base, arg) {
-      const b = base.trim();
-      if (!b || isSupportedBase(b)) {
-        return _m;
+    const readParened = function (text, start, openCh, closeCh) {
+      if (text[start] !== openCh) {
+        return null;
       }
-      return toChangeOfBase(b, arg);
-    });
+      let d = 0;
+      for (let p = start; p < text.length; p += 1) {
+        if (text[p] === openCh) { d += 1; }
+        else if (text[p] === closeCh) {
+          d -= 1;
+          if (d === 0) {
+            return { value: text.slice(start + 1, p), end: p + 1 };
+          }
+        }
+      }
+      return null;
+    };
 
-    // \log_{b}x -> change-of-base for unsupported bases.
-    out = out.replace(/\\log_\{([^}]+)\}\s*([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)(?!\s*(?:\\left\(|\())/g, function (_m, base, arg) {
-      const b = base.trim();
-      if (!b || isSupportedBase(b)) {
-        return _m;
+    const readArg = function (text, start) {
+      let p = start;
+      while (p < text.length && /\s/.test(text[p])) { p += 1; }
+
+      if (text.startsWith('\\left(', p)) {
+        p += 6;
+        let d = 1;
+        let q = p;
+        while (q < text.length) {
+          if (text.startsWith('\\left(', q)) {
+            d += 1;
+            q += 6;
+            continue;
+          }
+          if (text.startsWith('\\right)', q)) {
+            d -= 1;
+            if (d === 0) {
+              return { value: text.slice(p, q), end: q + 7 };
+            }
+            q += 7;
+            continue;
+          }
+          q += 1;
+        }
+        return null;
       }
-      return toChangeOfBase(b, arg);
-    });
+
+      if (text[p] === '(') {
+        const parsed = readParened(text, p, '(', ')');
+        if (!parsed) {
+          return null;
+        }
+        return { value: parsed.value, end: parsed.end };
+      }
+
+      const m = text.slice(p).match(/^([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/);
+      if (!m) {
+        return null;
+      }
+      return { value: m[1], end: p + m[1].length };
+    };
+
+    while (i < src.length) {
+      const slashIdx = src.indexOf('\\log_{', i);
+      const plainIdx = src.indexOf('log_{', i);
+
+      let at = -1;
+      let prefixLen = 0;
+      if (slashIdx === -1 && plainIdx === -1) {
+        out += src.slice(i);
+        break;
+      }
+      if (slashIdx !== -1 && (plainIdx === -1 || slashIdx <= plainIdx)) {
+        at = slashIdx;
+        prefixLen = 6; // "\\log_{"
+      } else {
+        at = plainIdx;
+        prefixLen = 5; // "log_{"
+      }
+
+      out += src.slice(i, at);
+      const baseParsed = readBraced(src, at + prefixLen - 1);
+      if (!baseParsed) {
+        out += src.slice(at, at + prefixLen);
+        i = at + prefixLen;
+        continue;
+      }
+
+      const base = (baseParsed.value || '').trim();
+      const argParsed = readArg(src, baseParsed.end);
+      if (!argParsed) {
+        out += src.slice(at, baseParsed.end);
+        i = baseParsed.end;
+        continue;
+      }
+
+      if (isSupportedBase(base)) {
+        out += src.slice(at, argParsed.end);
+      } else {
+        out += toChangeOfBase(base, argParsed.value);
+      }
+      i = argParsed.end;
+    }
 
     return out;
   }
