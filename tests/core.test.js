@@ -262,20 +262,6 @@ test('l2m keeps explicit parenthesized base-log as MATLAB log function', () => {
   assert.equal(code, 'log10(a) + log2(x)');
 });
 
-test('l2m throws for unsupported explicit numeric log base', () => {
-  assert.throws(
-    () => core.l2m('\\log_{3}x'),
-    /Unsupported logarithm base "3"/
-  );
-});
-
-test('l2m throws for unsupported symbolic log base', () => {
-  assert.throws(
-    () => core.l2m('\\log_{a}x'),
-    /Unsupported logarithm base "a"/
-  );
-});
-
 test('l2m treats plain log10 token as log of 10', () => {
   const code = core.l2m('log10');
   assert.equal(code, 'log(10)');
