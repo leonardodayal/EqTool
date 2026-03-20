@@ -278,7 +278,8 @@
     }
 
     try {
-      const raw = core.l2m(latex);
+      const resolvedLatex = resolveUnsupportedLogBases(latex);
+      const raw = core.l2m(resolvedLatex);
       state.currentToks = core.tokenize(raw);
       state.ambigPairs = core.findAmbig(state.currentToks);
       state.ambigRes = {};
@@ -286,6 +287,50 @@
     } catch (err) {
       el.innerHTML = '<span class="eq-err">' + err.message + '</span>';
     }
+  }
+
+  function resolveUnsupportedLogBases(latex) {
+    if (!latex) {
+      return latex;
+    }
+
+    let out = latex;
+    const isSupportedBase = function (base) {
+      return base === '2' || base === '10';
+    };
+
+    const toChangeOfBase = function (base, arg) {
+      return '\\frac{\\log\\left(' + arg + '\\right)}{\\log\\left(' + base + '\\right)}';
+    };
+
+    // \log_{b}\left(x\right) -> \frac{\log\left(x\right)}{\log\left(b\right)} for unsupported bases.
+    out = out.replace(/\\log_\{([^}]+)\}\s*\\left\(([^()]*)\\right\)/g, function (_m, base, arg) {
+      const b = base.trim();
+      if (!b || isSupportedBase(b)) {
+        return _m;
+      }
+      return toChangeOfBase(b, arg);
+    });
+
+    // \log_{b}(x) -> change-of-base for unsupported bases.
+    out = out.replace(/\\log_\{([^}]+)\}\s*\(([^()]*)\)/g, function (_m, base, arg) {
+      const b = base.trim();
+      if (!b || isSupportedBase(b)) {
+        return _m;
+      }
+      return toChangeOfBase(b, arg);
+    });
+
+    // \log_{b}x -> change-of-base for unsupported bases.
+    out = out.replace(/\\log_\{([^}]+)\}\s*([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)(?!\s*(?:\\left\(|\())/g, function (_m, base, arg) {
+      const b = base.trim();
+      if (!b || isSupportedBase(b)) {
+        return _m;
+      }
+      return toChangeOfBase(b, arg);
+    });
+
+    return out;
   }
 
   function toggleVec() {
@@ -401,6 +446,15 @@
           }
 
           renderS2M(rawLatex);
+        },
+        moveOutOf: function (_dir, mathField) {
+          mathField.focus();
+        },
+        upOutOf: function (mathField) {
+          mathField.focus();
+        },
+        downOutOf: function (mathField) {
+          mathField.focus();
         }
       }
     });
