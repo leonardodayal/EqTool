@@ -17,6 +17,15 @@
     lastLatex: ''
   };
 
+  const KNOWN_LATEX_COMMANDS = new Set(
+    typeof core.getKnownLatexCommands === 'function'
+      ? core.getKnownLatexCommands()
+      : ['sqrt', 'log', 'ln', 'sin', 'cos', 'tan', 'frac', 'left', 'right']
+  );
+  const ARG_REQUIRED_TRAILING_COMMANDS = new Set([
+    'sqrt', 'frac', 'left', 'right', 'operatorname', 'text', 'mathrm'
+  ]);
+
   function byId(id) {
     return document.getElementById(id);
   }
@@ -266,41 +275,30 @@
 
   function renderS2M(latex) {
     const el = byId('s2m-tokens');
-    const s2mHint = byId('s2m-hint');
+    const logWarn = byId('s2m-log-warn');
     if (!latex || !latex.trim()) {
+      setS2MIncompleteState(false);
       el.innerHTML = '<span class="eq-ph">output appears here</span>';
       state.lastCode = '';
       state.currentToks = [];
       state.ambigPairs = [];
       state.ambigRes = {};
-      if (s2mHint) {
-        s2mHint.classList.add('hidden');
-        s2mHint.textContent = '';
+      if (logWarn) {
+        logWarn.classList.add('hidden');
+        logWarn.textContent = '';
       }
       byId('warn-badge').classList.add('hidden');
       byId('ambig-hint').classList.add('hidden');
       return;
     }
 
-    const pendingBase = findPendingUnsupportedLogBase(latex);
-    if (pendingBase) {
-      el.innerHTML = '<span class="eq-ph">output appears here</span>';
-      state.lastCode = '';
-      state.currentToks = [];
-      state.ambigPairs = [];
-      state.ambigRes = {};
-      if (s2mHint) {
-        s2mHint.textContent = 'log base ' + pendingBase + ' needs an argument. Keep typing, e.g. log_{' + pendingBase + '}(x); it will auto-convert to change-of-base.';
-        s2mHint.classList.remove('hidden');
-      }
-      byId('warn-badge').classList.add('hidden');
-      byId('ambig-hint').classList.add('hidden');
-      return;
-    }
-
-    if (s2mHint) {
-      s2mHint.classList.add('hidden');
-      s2mHint.textContent = '';
+    const unsupportedBase = findUnsupportedLogBase(latex);
+    if (logWarn && unsupportedBase) {
+      logWarn.textContent = 'No log with base {' + unsupportedBase + '} exists in matlab using base-change formula';
+      logWarn.classList.remove('hidden');
+    } else if (logWarn) {
+      logWarn.classList.add('hidden');
+      logWarn.textContent = '';
     }
 
     try {
@@ -313,6 +311,16 @@
     } catch (err) {
       // Retry once with robust log-base auto-resolution before surfacing an error.
       if (/Unsupported logarithm base/.test(err.message || '')) {
+        const pendingBase = findPendingUnsupportedLogBase(latex);
+        if (pendingBase) {
+          const pendingRaw = '(log()) / (log(' + pendingBase + '))';
+          state.currentToks = core.tokenize(pendingRaw);
+          state.ambigPairs = core.findAmbig(state.currentToks);
+          state.ambigRes = {};
+          syncCodeDisplay();
+          return;
+        }
+
         try {
           const retried = core.l2m(resolveUnsupportedLogBases(latex));
           state.currentToks = core.tokenize(retried);
@@ -333,9 +341,7 @@
       return latex;
     }
 
-    const src = latex
-      .replace(/\\log_([a-zA-Z0-9]+)(?!\{)/g, '\\log_{$1}')
-      .replace(/\blog_([a-zA-Z0-9]+)(?!\{)/g, 'log_{$1}');
+    const src = normalizeCompactExplicitLogBaseInput(latex);
     let out = '';
     let i = 0;
 
@@ -344,7 +350,7 @@
     };
 
     const toChangeOfBase = function (base, arg) {
-      return '\\frac{\\log\\left(' + arg + '\\right)}{\\log\\left(' + base + '\\right)}';
+      return '\\frac{\\left(\\log\\left(' + arg + '\\right)\\right)}{\\left(\\log\\left(' + base + '\\right)\\right)}';
     };
 
     const readBraced = function (text, start) {
@@ -473,9 +479,7 @@
       return '';
     }
 
-    const src = latex
-      .replace(/\\log_([a-zA-Z0-9]+)(?!\{)/g, '\\log_{$1}')
-      .replace(/\blog_([a-zA-Z0-9]+)(?!\{)/g, 'log_{$1}');
+    const src = normalizeCompactExplicitLogBaseInput(latex);
 
     const m = src.match(/(?:\\log_|log_)\{([^}]+)\}(?!\s*(?:\\left\(|\(|[a-zA-Z_]|[0-9]))/);
     if (!m) {
@@ -487,6 +491,39 @@
       return '';
     }
     return base;
+  }
+
+  function findUnsupportedLogBase(latex) {
+    if (!latex) {
+      return '';
+    }
+
+    const src = normalizeCompactExplicitLogBaseInput(latex);
+    const m = src.match(/(?:\\log_|log_)\{([^}]+)\}/);
+    if (!m) {
+      return '';
+    }
+
+    const base = (m[1] || '').trim();
+    if (!base || base === '2' || base === '10') {
+      return '';
+    }
+    return base;
+  }
+
+  function normalizeCompactExplicitLogBaseInput(latex) {
+    if (!latex) {
+      return latex;
+    }
+
+    // Interpret compact typing as base+argument when the base is a single digit,
+    // e.g. \log_32 -> \log_{3}\left(2\right), log_3x -> log_{3}\left(x\right).
+    // For multi-digit bases, users can keep explicit braces (log_{32}).
+    return latex
+      .replace(/\\log_([0-9])([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)(?![a-zA-Z0-9_])/g, '\\log_{$1}\\left($2\\right)')
+      .replace(/\blog_([0-9])([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)(?![a-zA-Z0-9_])/g, 'log_{$1}\\left($2\\right)')
+      .replace(/\\log_([a-zA-Z0-9]+)(?!\{)/g, '\\log_{$1}')
+      .replace(/\blog_([a-zA-Z0-9]+)(?!\{)/g, 'log_{$1}');
   }
 
   function toggleVec() {
@@ -571,6 +608,74 @@
     copyText(state.lastCode, byId('copy-btn'), 'copied!', 'copy', 1500);
   }
 
+  function safeSetMathFieldLatex(value) {
+    try {
+      state.mqField.latex(value);
+      return true;
+    } catch (_err) {
+      return false;
+    }
+  }
+
+  function hasIncompleteLatexCommand(latex) {
+    if (!latex) {
+      return false;
+    }
+    // If the user just typed "\" or is still typing a command token,
+    // avoid normalization passes that rewrite the field mid-keystroke.
+    if (/(?:^|[^\\])\\\s*$/.test(latex)) {
+      return true;
+    }
+
+    const trailingCmd = latex.match(/(?:^|[^\\])\\\s*([a-zA-Z]+)$/);
+    if (!trailingCmd) {
+      return false;
+    }
+
+    const cmd = trailingCmd[1] || '';
+    if (!KNOWN_LATEX_COMMANDS.has(cmd)) {
+      return true;
+    }
+
+    // Commands like \sqrt are syntactically valid tokens but still incomplete
+    // if they are the last thing typed and have no argument yet.
+    return ARG_REQUIRED_TRAILING_COMMANDS.has(cmd);
+  }
+
+  function setS2MIncompleteState(isIncomplete) {
+    const codeEl = byId('s2m-code-block');
+    if (!codeEl) {
+      return;
+    }
+    codeEl.classList.toggle('has-error', !!isIncomplete);
+  }
+
+  function repairLikelyCommandGlitches(latex) {
+    if (!latex) {
+      return latex;
+    }
+    let out = latex;
+
+    // MathQuill can transiently emit backslash+space before command letters.
+    // Canonicalize "\\ qrt" -> "\\qrt" once the command token is complete.
+    out = out
+      .replace(/(^|[^\\])\\\s+([a-zA-Z]+)(?=[^a-zA-Z]|$)/g, '$1\\$2');
+
+    // Observed intermittent MathQuill input glitch: "\\sqrt" may appear as "\\qrt".
+    out = out.replace(/(^|[^\\])\\qrt\b/g, '$1\\sqrt');
+
+    return out;
+  }
+
+  function hasLivePlaceholderSlot(latex) {
+    if (!latex) {
+      return false;
+    }
+    // MathQuill represents an empty slot as "{ }"; rewriting latex while slots
+    // are open can move the cursor out of the slot unexpectedly.
+    return /\{\s\}/.test(latex);
+  }
+
   function initMathField() {
     const MQ = MathQuill.getInterface(2);
     state.mqField = MQ.MathField(byId('mq-field'), {
@@ -586,31 +691,52 @@
           if (state.isNormalizingEdit) {
             return;
           }
+          try {
+            const rawLatex = state.mqField.latex();
+            const incomplete = hasIncompleteLatexCommand(rawLatex);
+            setS2MIncompleteState(incomplete);
 
-          const rawLatex = state.mqField.latex();
-          const parenNormalized = core.normalizeCompactLogInput(core.normalizeParenLatex(rawLatex));
-          const normalized = state.skipAutoSubscriptOnce
-            ? parenNormalized
-            : core.autoSubscriptVariableNumbers(parenNormalized);
-          state.skipAutoSubscriptOnce = false;
-          if (normalized !== rawLatex) {
-            state.isNormalizingEdit = true;
-            state.mqField.latex(normalized);
-            state.isNormalizingEdit = false;
-            renderS2M(normalized);
-            return;
+            if (incomplete) {
+              // Do not normalize or rewrite while command token is still being typed.
+              return;
+            }
+
+            if (hasLivePlaceholderSlot(rawLatex)) {
+              renderS2M(rawLatex);
+              return;
+            }
+
+            const repairedLatex = repairLikelyCommandGlitches(rawLatex);
+            if (repairedLatex !== rawLatex) {
+              state.isNormalizingEdit = true;
+              const repairedOk = safeSetMathFieldLatex(repairedLatex);
+              state.isNormalizingEdit = false;
+              renderS2M(repairedOk ? repairedLatex : rawLatex);
+              return;
+            }
+
+            const parenNormalized = core.normalizeCompactLogInput(core.normalizeParenLatex(rawLatex));
+            const normalized = state.skipAutoSubscriptOnce
+              ? parenNormalized
+              : core.autoSubscriptVariableNumbers(parenNormalized);
+            state.skipAutoSubscriptOnce = false;
+            if (normalized !== rawLatex) {
+              state.isNormalizingEdit = true;
+              const ok = safeSetMathFieldLatex(normalized);
+              state.isNormalizingEdit = false;
+              renderS2M(ok ? normalized : rawLatex);
+              return;
+            }
+
+            renderS2M(rawLatex);
+          } catch (_err) {
+            // Keep the editor responsive even if MathQuill throws during incremental edits.
+            try {
+              renderS2M(state.mqField.latex());
+            } catch (__err) {
+              renderS2M('');
+            }
           }
-
-          renderS2M(rawLatex);
-        },
-        moveOutOf: function (_dir, mathField) {
-          mathField.focus();
-        },
-        upOutOf: function (mathField) {
-          mathField.focus();
-        },
-        downOutOf: function (mathField) {
-          mathField.focus();
         }
       }
     });
@@ -647,7 +773,11 @@
       evt.preventDefault();
       const normalized = core.autoSubscriptVariableNumbers(core.normalizeCompactLogInput(core.normalizeParenLatex(pasted)));
       // Insert at cursor position instead of replacing entire field
-      state.mqField.write(normalized);
+      try {
+        state.mqField.write(normalized);
+      } catch (_err) {
+        state.mqField.write(pasted);
+      }
       const fullLatex = state.mqField.latex();
       renderS2M(fullLatex);
       state.mqField.focus();

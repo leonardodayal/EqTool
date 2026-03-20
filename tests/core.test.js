@@ -122,6 +122,36 @@ test('l2m keeps log as function without parentheses in input', () => {
   assert.equal(code, 'log(a)');
 });
 
+test('l2m applies numeric coefficient to plain log token', () => {
+  const code = core.l2m('2\\log x');
+  assert.equal(code, '2 * log(x)');
+});
+
+test('l2m treats trig function followed by Greek command as function application', () => {
+  const code = core.l2m('\\cos \\alpha');
+  assert.equal(code, 'cos(alpha)');
+});
+
+test('l2m keeps psi as symbolic factor without explicit call', () => {
+  const code = core.l2m('\\psi x');
+  assert.equal(code, 'psi * x');
+});
+
+test('l2m keeps zeta as symbolic factor without explicit call', () => {
+  const code = core.l2m('\\zeta x');
+  assert.equal(code, 'zeta * x');
+});
+
+test('l2m supports explicit psi and zeta function calls with parentheses', () => {
+  const code = core.l2m('psi(x) + zeta(x)');
+  assert.equal(code, 'psi(x) + zeta(x)');
+});
+
+test('l2m keeps multiplication when trig function already has explicit argument', () => {
+  const code = core.l2m('\\cos\\left(x\\right)\\alpha');
+  assert.equal(code, 'cos(x) * alpha');
+});
+
 test('l2m converts compact plain log numeric input', () => {
   const code = core.l2m('\\log1 + \\log101');
   assert.equal(code, 'log(1) + log(101)');
@@ -157,6 +187,16 @@ test('l2m handles spaced inverse trig notation with subscript argument', () => {
   assert.equal(code, 'atan(h_1)');
 });
 
+test('l2m handles inverse trig with LaTeX command subscript argument', () => {
+  const code = core.l2m('\\cos ^{-1}\\alpha _0');
+  assert.equal(code, 'acos(alpha_0)');
+});
+
+test('l2m keeps multiplication after inverse trig application', () => {
+  const code = core.l2m('\\cos^{-1}\\alpha_0\\beta');
+  assert.equal(code, 'acos(alpha_0) * beta');
+});
+
 test('l2m keeps literal hyperbolic inverse names as hyperbolic functions', () => {
   const code = core.l2m('atanhx + asinhy + acoshz');
   assert.equal(code, 'atanh(x) + asinh(y) + acosh(z)');
@@ -177,9 +217,24 @@ test('l2m converts compact trig power without parentheses', () => {
   assert.equal(code, 'sin(x)^2');
 });
 
+test('l2m converts compact trig power with optional spacing and command argument', () => {
+  const code = core.l2m('\\sin ^2\\theta');
+  assert.equal(code, 'sin(theta)^2');
+});
+
 test('l2m converts compact trig braced power without parentheses', () => {
   const code = core.l2m('\\cos^{3}y');
   assert.equal(code, 'cos(y)^3');
+});
+
+test('l2m converts compact trig braced power with command argument', () => {
+  const code = core.l2m('\\sin^{2}\\theta');
+  assert.equal(code, 'sin(theta)^2');
+});
+
+test('l2m converts compact trig braced power with braced argument', () => {
+  const code = core.l2m('\\sin^{2}{x}');
+  assert.equal(code, 'sin(x)^2');
 });
 
 test('l2m converts compact base-10 log application to function call', () => {
@@ -251,6 +306,18 @@ test('l2m inserts multiplication between number and parenthesis', () => {
   assert.equal(code, '3 * (x) + 2.5 * (y) + 10 * (z)');
 });
 
+test('l2m keeps single multiplication around cdot before Greek symbols', () => {
+  const code = core.l2m('2\\cdot \\Delta t');
+  assert.equal(code, '2*Delta * t');
+  assert.equal(code.includes('**'), false);
+});
+
+test('l2m keeps single multiplication around times before Greek symbols', () => {
+  const code = core.l2m('2\\times \\Delta t');
+  assert.equal(code, '2*Delta * t');
+  assert.equal(code.includes('**'), false);
+});
+
 test('l2m inserts multiplication between parenthesis and number', () => {
   const code = core.l2m('\\left(x\\right)3 + (a + b)2.5 + sin(x)10');
   assert.equal(code, '(x) * 3 + (a + b) * 2.5 + sin(x) * 10');
@@ -274,6 +341,11 @@ test('l2m inserts multiplication for chained function calls followed by identifi
 test('l2m inserts multiplication for longer chained function calls', () => {
   const code = core.l2m('\\log \\left(2\\right)\\sin \\left(3\\right)\\ceil \\left(4\\right)a');
   assert.equal(code, 'log(2) * sin(3) * ceil(4) * a');
+});
+
+test('l2m applies numeric coefficients to plain function tokens', () => {
+  const code = core.l2m('2\\log x + 3\\sin x');
+  assert.equal(code, '2 * log(x) + 3 * sin(x)');
 });
 
 test('l2m inserts multiplication between adjacent braced identifiers', () => {
@@ -319,6 +391,31 @@ test('autoSubscriptVariableNumbers handles unbraced alphabetic subscripts with t
 test('autoSubscriptVariableNumbers canonicalizes single-letter unbraced subscript', () => {
   const out = core.autoSubscriptVariableNumbers('a_d + c_4');
   assert.equal(out, 'a_{d} + c_{4}');
+});
+
+test('autoSubscriptVariableNumbers canonicalizes greek command with trailing digit', () => {
+  const out = core.autoSubscriptVariableNumbers('\\alpha 0 + \\rho2');
+  assert.equal(out, '\\alpha_{0} + \\rho_{2}');
+});
+
+test('autoSubscriptVariableNumbers canonicalizes greek command numeric subscript', () => {
+  const out = core.autoSubscriptVariableNumbers('\\alpha_02 + \\rho_7');
+  assert.equal(out, '\\alpha_{02} + \\rho_{7}');
+});
+
+test('autoSubscriptVariableNumbers absorbs trailing digits for greek command subscript', () => {
+  const out = core.autoSubscriptVariableNumbers('\\alpha_{0}23x');
+  assert.equal(out, '\\alpha_{023}x');
+});
+
+test('autoSubscriptVariableNumbers does not rewrite compact explicit log base forms', () => {
+  const out = core.autoSubscriptVariableNumbers('\\log_10 + \\log_2');
+  assert.equal(out, '\\log_10 + \\log_2');
+});
+
+test('autoSubscriptVariableNumbers treats partial and nabla like regular variables', () => {
+  const out = core.autoSubscriptVariableNumbers('\\partial 2 + \\nabla 3');
+  assert.equal(out, '\\partial_{2} + \\nabla_{3}');
 });
 
 test('autoSubscriptVariableNumbers does not rewrite multi-letter identifiers', () => {
@@ -440,6 +537,14 @@ test('findAmbig + buildCode merges greek pair into subscript', () => {
   assert.equal(pairs.length, 1);
   const code = core.buildCode(toks, pairs, { [pairs[0].li]: 'm' });
   assert.equal(code, 'delta_t + x');
+});
+
+test('findAmbig + buildCode merges Delta pair into subscript', () => {
+  const toks = core.tokenize('Delta * t + x');
+  const pairs = core.findAmbig(toks);
+  assert.equal(pairs.length, 1);
+  const code = core.buildCode(toks, pairs, { [pairs[0].li]: 'm' });
+  assert.equal(code, 'Delta_t + x');
 });
 
 test('vectorize inserts dot operators', () => {

@@ -24,7 +24,8 @@
   };
   const GREEK_WORDS = new Set([
     'delta', 'alpha', 'beta', 'gamma', 'rho', 'mu', 'theta', 'omega', 'sigma',
-    'phi', 'lambda', 'pi', 'eta', 'nu', 'xi', 'tau', 'epsilon', 'zeta'
+    'phi', 'lambda', 'pi', 'eta', 'nu', 'xi', 'tau', 'epsilon', 'zeta',
+    'Delta'
   ]);
   const CONSTANTS = { pi: '\\pi', Inf: '\\infty', inf: '\\infty', NaN: '\\text{NaN}' };
   const LATEX_SYMBOL_MAP = {
@@ -41,6 +42,21 @@
     partial: 'partial', nabla: 'nabla', ell: 'ell', hbar: 'hbar', aleph: 'aleph', wp: 'wp',
     Re: 'Re', Im: 'Im', imath: 'imath', jmath: 'jmath', infty: 'Inf'
   };
+  const KNOWN_LATEX_COMMANDS = [
+    // Core symbol commands.
+    'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'varepsilon', 'zeta', 'eta', 'theta', 'vartheta',
+    'iota', 'kappa', 'lambda', 'mu', 'nu', 'xi', 'pi', 'varpi', 'rho', 'varrho', 'sigma', 'varsigma',
+    'tau', 'upsilon', 'phi', 'varphi', 'chi', 'psi', 'omega',
+    'Gamma', 'Delta', 'Theta', 'Lambda', 'Xi', 'Pi', 'Sigma', 'Upsilon', 'Phi', 'Psi', 'Omega',
+    'partial', 'nabla', 'ell', 'hbar', 'aleph', 'wp', 'Re', 'Im', 'imath', 'jmath', 'infty',
+    // Function and layout commands used in editor typing.
+    'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'sinh', 'cosh', 'tanh',
+    'asin', 'acos', 'atan', 'acot', 'asec', 'acsc', 'asinh', 'acosh', 'atanh',
+    'arcsin', 'arccos', 'arctan', 'exp', 'log', 'ln', 'sqrt', 'abs', 'floor', 'ceil',
+    'left', 'right', 'cdot', 'times', 'frac', 'operatorname', 'text', 'mathrm',
+    // Compatibility aliases supported by parser rewrites.
+    'arcsec', 'arccsc', 'arccot'
+  ];
   const SYMBOLIC_WORDS = new Set([
     'delta', 'alpha', 'beta', 'gamma', 'rho', 'mu', 'theta', 'omega', 'sigma',
     'phi', 'lambda', 'pi', 'eta', 'nu', 'xi', 'tau', 'epsilon', 'zeta',
@@ -365,10 +381,31 @@
     let out = latex;
     let prev = '';
     let guard = 0;
+    const symbolCommandPattern = Object.keys(LATEX_SYMBOL_MAP)
+      .slice()
+      .sort(function (a, b) { return b.length - a.length; })
+      .map(function (name) { return name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
+      .join('|');
 
     // Normalize incremental typing states until stable.
     while (out !== prev && guard < 6) {
       prev = out;
+
+      // Canonicalize compact/space-separated command+digits input, e.g. \alpha 0 -> \alpha_{0}.
+      out = out.replace(new RegExp('(\\\\(?:' + symbolCommandPattern + '))\\s*([0-9]+)', 'g'), function (_m, cmd, digits) {
+        return cmd + '_{' + digits + '}';
+      });
+
+      // Canonicalize unbraced numeric command subscripts, e.g. \alpha_02 -> \alpha_{02}.
+      out = out.replace(new RegExp('(\\\\(?:' + symbolCommandPattern + '))_([0-9]+)', 'g'), function (_m, cmd, digits) {
+        return cmd + '_{' + digits + '}';
+      });
+
+      // If a command numeric subscript already exists and more digits are typed
+      // before the next variable token, absorb them into the same subscript.
+      out = out.replace(new RegExp('(\\\\(?:' + symbolCommandPattern + '))_\\{([0-9]+)\\}\\s*([0-9]+)', 'g'), function (_m, cmd, sub, extra) {
+        return cmd + '_{' + sub + extra + '}';
+      });
 
       // If a numeric subscript already exists and more digits are typed immediately
       // after it, absorb them into the same subscript: a_{1}23 -> a_{123}.
@@ -685,7 +722,8 @@
       }
 
       const prev = lastNonSpaceChar(out);
-      if (/[a-zA-Z0-9_)]/.test(prev)) {
+      const precededByCommand = /\\[a-zA-Z]+\s*$/.test(out);
+      if (/[a-zA-Z0-9_)]/.test(prev) && !precededByCommand) {
         out += ' * ';
       }
 
@@ -752,9 +790,9 @@
     s = s.replace(/\\arccos\b/g, 'acos').replace(/\\arcsin\b/g, 'asin').replace(/\\arctan\b/g, 'atan');
     s = s.replace(/\\arccot\b/g, 'acot').replace(/\\arcsec\b/g, 'asec').replace(/\\arccsc\b/g, 'acsc');
     // Disambiguate \sin^{-1}h / \cos^{-1}h / \tan^{-1}h from asinh/acosh/atanh.
-    s = s.replace(/\\cos\s*\^(?:\{-1\}|-1)(?=\s*[a-zA-Z_])/g, 'acos ');
-    s = s.replace(/\\sin\s*\^(?:\{-1\}|-1)(?=\s*[a-zA-Z_])/g, 'asin ');
-    s = s.replace(/\\tan\s*\^(?:\{-1\}|-1)(?=\s*[a-zA-Z_])/g, 'atan ');
+    s = s.replace(/\\cos\s*\^(?:\{-1\}|-1)(?=\s*(?:[a-zA-Z_]|\\[a-zA-Z]+))/g, 'acos ');
+    s = s.replace(/\\sin\s*\^(?:\{-1\}|-1)(?=\s*(?:[a-zA-Z_]|\\[a-zA-Z]+))/g, 'asin ');
+    s = s.replace(/\\tan\s*\^(?:\{-1\}|-1)(?=\s*(?:[a-zA-Z_]|\\[a-zA-Z]+))/g, 'atan ');
     s = s.replace(/\\cos\s*\^(?:\{-1\}|-1)/g, 'acos').replace(/\\sin\s*\^(?:\{-1\}|-1)/g, 'asin').replace(/\\tan\s*\^(?:\{-1\}|-1)/g, 'atan');
     s = s.replace(/\\cot\^(?:\{-1\}|-1)/g, 'acot').replace(/\\sec\^(?:\{-1\}|-1)/g, 'asec').replace(/\\csc\^(?:\{-1\}|-1)/g, 'acsc');
     s = s.replace(/\\sinh\^(?:\{-1\}|-1)/g, 'asinh').replace(/\\cosh\^(?:\{-1\}|-1)/g, 'acosh').replace(/\\tanh\^(?:\{-1\}|-1)/g, 'atanh');
@@ -764,10 +802,13 @@
     s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\^([0-9])\s*\\left\s*\(/g, 'TRIGPOW_$1_$2_(');
     s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\^([0-9])\s*\(/g, 'TRIGPOW_$1_$2_(');
     // Compact trig power forms without explicit parentheses, e.g. \sin^2 x -> sin(x)^2.
-    s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\^\{([^}]+)\}\s*([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/g, function (_m, fn, exp, arg) {
+    s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\s*\^\{([^}]+)\}\s*(\\[a-zA-Z]+|[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/g, function (_m, fn, exp, arg) {
       return fn + '(' + arg + ')^' + exp;
     });
-    s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\^([0-9]+)\s*([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/g, function (_m, fn, exp, arg) {
+    s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\s*\^([0-9]+)\s*(\\[a-zA-Z]+|[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/g, function (_m, fn, exp, arg) {
+      return fn + '(' + arg + ')^' + exp;
+    });
+    s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\s*\^\{([^}]+)\}\s*\{([^}]+)\}/g, function (_m, fn, exp, arg) {
       return fn + '(' + arg + ')^' + exp;
     });
 
@@ -894,8 +935,14 @@
     s = s.replace(new RegExp('(' + trigFn2 + ')\\s*([a-zA-Z_][a-zA-Z0-9_]*)(?![(])', 'g'), function (_m, fn, arg) {
       return fn + '(' + arg + ')';
     });
+    s = s.replace(new RegExp('(' + trigFn2 + ')\\s*\\*\\s*([a-zA-Z_][a-zA-Z0-9_]*|QVARPROT[A-Z]+Q)(?!\\s*\\()', 'g'), function (_m, fn, arg) {
+      return fn + '(' + arg + ')';
+    });
     const invTrigNoParen = '(?:asinh|acosh|atanh|asin(?!h)|acos(?!h)|atan(?!h)|acot|asec|acsc)';
-    s = s.replace(new RegExp('(' + invTrigNoParen + ')\s*([a-zA-Z_][a-zA-Z0-9_]*)(?![(])', 'g'), function (_m, fn, arg) {
+    s = s.replace(new RegExp('(' + invTrigNoParen + ')\\s*([a-zA-Z_][a-zA-Z0-9_]*)(?![(])', 'g'), function (_m, fn, arg) {
+      return fn + '(' + arg + ')';
+    });
+    s = s.replace(new RegExp('(' + invTrigNoParen + ')\\s*\\*\\s*([a-zA-Z_][a-zA-Z0-9_]*|QVARPROT[A-Z]+Q)(?!\\s*\\()', 'g'), function (_m, fn, arg) {
       return fn + '(' + arg + ')';
     });
 
@@ -916,6 +963,10 @@
 
     // Compact plain log numeric input from LaTeX: \log1 -> log(1), \log101 -> log(101).
     s = s.replace(/\blog\s*([0-9]+(?:\.[0-9]+)?)(?![0-9(])/g, 'log($1)');
+
+    // Plain log followed by a symbolic/variable token should be treated as function
+    // application, e.g. log x -> log(x).
+    s = s.replace(/\blog\s+([a-zA-Z_][a-zA-Z0-9_]*|QVARPROT[A-Z]+Q)(?!\s*\()/g, 'log($1)');
 
     // Merge trailing digits into existing numeric log arguments: log(1)0 -> log(10).
     s = s.replace(/\blog\(([0-9]+(?:\.[0-9]+)?)\)\s*([0-9]+)/g, 'log($1$2)');
@@ -943,17 +994,31 @@
     s = s.replace(/QLOGBASE10FNQ/g, 'log10');
     s = s.replace(/QLOGBASE2FNQ/g, 'log2');
 
-    const callableFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|sqrt|floor|ceil|log10|log2|sin|cos|tan|cot|sec|csc|exp|abs|log|ln|atan2|nthroot|zeta|psi';
-    const knownFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|floor|ceil|log10|log2|sqrt|sin|cos|tan|cot|sec|csc|exp|log|ln|abs|zeta|psi';
+    const callableFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|sqrt|floor|ceil|log10|log2|sin|cos|tan|cot|sec|csc|exp|abs|log|ln|atan2|nthroot';
+    const knownFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|floor|ceil|log10|log2|sqrt|sin|cos|tan|cot|sec|csc|exp|log|ln|abs';
 
     s = s.replace(new RegExp('\\b(' + callableFnPattern + ')\\s+([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\\.[0-9]+)?|QVARPROT[A-Z]+Q)(?!\\s*\\()', 'g'), function (_m, fn, arg) {
       return fn + '(' + arg + ')';
     });
 
+    // Ensure plain log tokens with variable-like arguments become function calls,
+    // even after intermediate spacing/normalization rewrites.
+    s = s.replace(/\blog\s+([a-zA-Z_][a-zA-Z0-9_]*|QVARPROT[A-Z]+Q)\b(?!\s*\()/g, 'log($1)');
+
+    // Numeric coefficients before function calls should remain explicit multiplication,
+    // e.g. 2 log(x) -> 2 * log(x).
+    s = s.replace(new RegExp('([0-9]+\\.?[0-9]*)\\s+(?=(' + callableFnPattern + ')\\s*\\()', 'g'), '$1 * ');
+
     // Handle functions followed directly by parentheses with optional whitespace, e.g. cos (1) -> cos(1).
     s = s.replace(new RegExp('\\b(' + callableFnPattern + ')\\s+\\(', 'g'), '$1(');
 
     const symbolicWordPattern = buildAlternationPattern(Array.from(SYMBOLIC_WORDS));
+    const symbolicCallablePattern = buildAlternationPattern(Array.from(SYMBOLIC_WORDS).filter(function (name) {
+      return /^[a-z]/.test(name);
+    }));
+    // If a symbolic command is explicitly used as a call with parentheses,
+    // preserve it as a function-like token (e.g. \psi \left(s\right) -> psi(s)).
+    s = s.replace(new RegExp('\\b(' + symbolicCallablePattern + ')\\s+\\(', 'g'), '$1(');
     s = s.replace(new RegExp('(' + symbolicWordPattern + ')\\s+([a-zA-Z_][a-zA-Z0-9_]*)', 'g'), function (_m, g, r) {
       return g + ' * ' + r;
     });
@@ -1018,6 +1083,7 @@
     s = s.replace(new RegExp('\\)\\s*(' + callableFnPattern + ')\\(', 'g'), ') * $1(');
 
     s = restoreBracedIdentifiers(s, prot.saved);
+    s = s.replace(/\blog\s+([a-zA-Z_][a-zA-Z0-9_]*)\b/g, 'log($1)');
     return s.replace(/\s+/g, ' ').trim();
   }
 
@@ -1142,6 +1208,10 @@
     }
 
     return result;
+  }
+
+  function getKnownLatexCommands() {
+    return KNOWN_LATEX_COMMANDS.slice();
   }
 
   function escHtml(s) {
@@ -1305,6 +1375,7 @@
     cleanLatexForCopy: cleanLatexForCopy,
     normalizeParenLatex: normalizeParenLatex,
     autoSubscriptVariableNumbers: autoSubscriptVariableNumbers,
-    normalizeCompactLogInput: normalizeCompactLogInput
+    normalizeCompactLogInput: normalizeCompactLogInput,
+    getKnownLatexCommands: getKnownLatexCommands
   };
 }));
