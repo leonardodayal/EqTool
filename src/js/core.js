@@ -643,32 +643,43 @@
       .join('|');
   }
 
-  function replaceLatexSymbolCommand(src, cmdName, mapped) {
-    const cmd = '\\' + cmdName;
+  function replaceLatexSymbolCommands(src) {
     let out = '';
     let i = 0;
 
     while (i < src.length) {
-      const j = src.indexOf(cmd, i);
-      if (j === -1) {
-        out += src.slice(i);
-        break;
+      if (src[i] !== '\\') {
+        out += src[i];
+        i += 1;
+        continue;
       }
 
-      out += src.slice(i, j);
-      const next = src[j + cmd.length] || '';
-
-      // If command text is followed by a letter, treat it as part of a longer token.
-      if (/[a-zA-Z]/.test(next)) {
-        out += cmd;
-      } else if (next === '\\') {
-        // Preserve boundary between adjacent commands: \Delta\delta -> Delta \delta.
-        out += mapped + ' ';
-      } else {
-        out += mapped;
+      let j = i + 1;
+      while (j < src.length && /[a-zA-Z]/.test(src[j])) {
+        j += 1;
+      }
+      if (j === i + 1) {
+        out += src[i];
+        i += 1;
+        continue;
       }
 
-      i = j + cmd.length;
+      const cmdName = src.slice(i + 1, j);
+      const mapped = Object.prototype.hasOwnProperty.call(LATEX_SYMBOL_MAP, cmdName)
+        ? LATEX_SYMBOL_MAP[cmdName]
+        : null;
+
+      if (!mapped) {
+        out += src.slice(i, j);
+        i = j;
+        continue;
+      }
+
+      out += mapped;
+      if (src[j] === '\\') {
+        out += ' ';
+      }
+      i = j;
     }
 
     return out;
@@ -779,25 +790,7 @@
     s = s.replace(/\\text\{([^}]+)\}/g, '$1');
     s = s.replace(/\\mathrm\{([^}]+)\}/g, '$1');
 
-    const symbolKeys = Object.keys(LATEX_SYMBOL_MAP).sort(function (a, b) {
-      const byLen = b.length - a.length;
-      if (byLen !== 0) {
-        return byLen;
-      }
-      // For equal-length symbols, keep deterministic lexical order so
-      // uppercase commands (e.g. Delta) are handled before lowercase (delta).
-      if (a < b) {
-        return -1;
-      }
-      if (a > b) {
-        return 1;
-      }
-      return 0;
-    });
-    for (let i = 0; i < symbolKeys.length; i += 1) {
-      const k = symbolKeys[i];
-      s = replaceLatexSymbolCommand(s, k, LATEX_SYMBOL_MAP[k]);
-    }
+    s = replaceLatexSymbolCommands(s);
 
     s = s.replace(/\\cdot\s*/g, '*').replace(/\\times\s*/g, '*');
 

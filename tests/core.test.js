@@ -32,6 +32,16 @@ test('l2m preserves adjacent Greek commands without whitespace', () => {
   assert.equal(code, 'Delta * delta');
 });
 
+test('l2m preserves adjacent lowercase-uppercase Greek commands without whitespace', () => {
+  const code = core.l2m('\\gamma\\Gamma');
+  assert.equal(code, 'gamma * Gamma');
+});
+
+test('l2m preserves adjacent lowercase-uppercase delta pair without whitespace', () => {
+  const code = core.l2m('\\delta\\Delta');
+  assert.equal(code, 'delta * Delta');
+});
+
 test('l2m converts Gamma and zeta function product without backslash leakage', () => {
   const code = core.l2m('\\Gamma \\left(s\\right)\\zeta \\left(s\\right)');
   assert.equal(code, 'Gamma (s) * zeta(s)');
