@@ -272,6 +272,14 @@ textarea::placeholder { color:var(--text3); }
 }
 
 .warn-badge.hidden { display:none; }
+.s2m-hint {
+  font-size:11px;
+  font-family:var(--mono);
+  color:#facc15bb;
+  margin-top:6px;
+  line-height:1.45;
+}
+.s2m-hint.hidden { display:none; }
 .ambig-hint { font-size:11px; font-family:var(--mono); color:#fb923c77; margin-top:6px; }
 .ambig-hint.hidden { display:none; }
 

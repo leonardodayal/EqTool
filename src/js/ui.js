@@ -266,15 +266,41 @@
 
   function renderS2M(latex) {
     const el = byId('s2m-tokens');
+    const s2mHint = byId('s2m-hint');
     if (!latex || !latex.trim()) {
       el.innerHTML = '<span class="eq-ph">output appears here</span>';
       state.lastCode = '';
       state.currentToks = [];
       state.ambigPairs = [];
       state.ambigRes = {};
+      if (s2mHint) {
+        s2mHint.classList.add('hidden');
+        s2mHint.textContent = '';
+      }
       byId('warn-badge').classList.add('hidden');
       byId('ambig-hint').classList.add('hidden');
       return;
+    }
+
+    const pendingBase = findPendingUnsupportedLogBase(latex);
+    if (pendingBase) {
+      el.innerHTML = '<span class="eq-ph">output appears here</span>';
+      state.lastCode = '';
+      state.currentToks = [];
+      state.ambigPairs = [];
+      state.ambigRes = {};
+      if (s2mHint) {
+        s2mHint.textContent = 'log base ' + pendingBase + ' needs an argument. Keep typing, e.g. log_{' + pendingBase + '}(x); it will auto-convert to change-of-base.';
+        s2mHint.classList.remove('hidden');
+      }
+      byId('warn-badge').classList.add('hidden');
+      byId('ambig-hint').classList.add('hidden');
+      return;
+    }
+
+    if (s2mHint) {
+      s2mHint.classList.add('hidden');
+      s2mHint.textContent = '';
     }
 
     try {
@@ -440,6 +466,27 @@
     }
 
     return out;
+  }
+
+  function findPendingUnsupportedLogBase(latex) {
+    if (!latex) {
+      return '';
+    }
+
+    const src = latex
+      .replace(/\\log_([a-zA-Z0-9]+)(?!\{)/g, '\\log_{$1}')
+      .replace(/\blog_([a-zA-Z0-9]+)(?!\{)/g, 'log_{$1}');
+
+    const m = src.match(/(?:\\log_|log_)\{([^}]+)\}(?!\s*(?:\\left\(|\(|[a-zA-Z_]|[0-9]))/);
+    if (!m) {
+      return '';
+    }
+
+    const base = (m[1] || '').trim();
+    if (!base || base === '2' || base === '10') {
+      return '';
+    }
+    return base;
   }
 
   function toggleVec() {
