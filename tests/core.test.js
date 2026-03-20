@@ -19,7 +19,52 @@ test('parseMatlab + astTex render trig power and fraction forms', () => {
 
 test('l2m converts inverse trig and greek spacing', () => {
   const code = core.l2m('\\cos^{-1}\\left(\\alpha_0\\right)+\\Delta t');
-  assert.equal(code, 'acos(alpha_0)+delta * t');
+  assert.equal(code, 'acos(alpha_0)+Delta * t');
+});
+
+test('l2m preserves uppercase Delta and lowercase delta distinctly', () => {
+  const code = core.l2m('\\Delta \\delta');
+  assert.equal(code, 'Delta * delta');
+});
+
+test('l2m preserves adjacent Greek commands without whitespace', () => {
+  const code = core.l2m('\\Delta\\delta');
+  assert.equal(code, 'Delta * delta');
+});
+
+test('l2m preserves adjacent lowercase-uppercase Greek commands without whitespace', () => {
+  const code = core.l2m('\\gamma\\Gamma');
+  assert.equal(code, 'gamma * Gamma');
+});
+
+test('l2m preserves adjacent lowercase-uppercase delta pair without whitespace', () => {
+  const code = core.l2m('\\delta\\Delta');
+  assert.equal(code, 'delta * Delta');
+});
+
+test('l2m inserts multiplication for identifier followed by Greek command', () => {
+  const code = core.l2m('a\\rho + b\\psi + c\\Gamma');
+  assert.equal(code, 'a * rho + b * psi + c * Gamma');
+});
+
+test('l2m converts Gamma and zeta function product without backslash leakage', () => {
+  const code = core.l2m('\\Gamma \\left(s\\right)\\zeta \\left(s\\right)');
+  assert.equal(code, 'Gamma (s) * zeta(s)');
+});
+
+test('l2m treats Gamma and gamma as adjacent symbolic factors', () => {
+  const code = core.l2m('\\Gamma \\gamma');
+  assert.equal(code, 'Gamma * gamma');
+});
+
+test('l2m maps uppercase Greek commands to identifiers without splitting', () => {
+  const code = core.l2m('\\Theta + \\Omega');
+  assert.equal(code, 'Theta + Omega');
+});
+
+test('l2m maps additional Greek and math symbol commands without backslash leakage', () => {
+  const code = core.l2m('\\psi \\left(s\\right) + \\varphi + \\partial x + \\nabla f');
+  assert.equal(code, 'psi(s) + varphi + partial * x + nabla * f');
 });
 
 test('l2m inserts multiplication between adjacent parenthesized groups', () => {
@@ -77,6 +122,36 @@ test('l2m keeps log as function without parentheses in input', () => {
   assert.equal(code, 'log(a)');
 });
 
+test('l2m applies numeric coefficient to plain log token', () => {
+  const code = core.l2m('2\\log x');
+  assert.equal(code, '2 * log(x)');
+});
+
+test('l2m treats trig function followed by Greek command as function application', () => {
+  const code = core.l2m('\\cos \\alpha');
+  assert.equal(code, 'cos(alpha)');
+});
+
+test('l2m keeps psi as symbolic factor without explicit call', () => {
+  const code = core.l2m('\\psi x');
+  assert.equal(code, 'psi * x');
+});
+
+test('l2m keeps zeta as symbolic factor without explicit call', () => {
+  const code = core.l2m('\\zeta x');
+  assert.equal(code, 'zeta * x');
+});
+
+test('l2m supports explicit psi and zeta function calls with parentheses', () => {
+  const code = core.l2m('psi(x) + zeta(x)');
+  assert.equal(code, 'psi(x) + zeta(x)');
+});
+
+test('l2m keeps multiplication when trig function already has explicit argument', () => {
+  const code = core.l2m('\\cos\\left(x\\right)\\alpha');
+  assert.equal(code, 'cos(x) * alpha');
+});
+
 test('l2m converts compact plain log numeric input', () => {
   const code = core.l2m('\\log1 + \\log101');
   assert.equal(code, 'log(1) + log(101)');
@@ -112,6 +187,16 @@ test('l2m handles spaced inverse trig notation with subscript argument', () => {
   assert.equal(code, 'atan(h_1)');
 });
 
+test('l2m handles inverse trig with LaTeX command subscript argument', () => {
+  const code = core.l2m('\\cos ^{-1}\\alpha _0');
+  assert.equal(code, 'acos(alpha_0)');
+});
+
+test('l2m keeps multiplication after inverse trig application', () => {
+  const code = core.l2m('\\cos^{-1}\\alpha_0\\beta');
+  assert.equal(code, 'acos(alpha_0) * beta');
+});
+
 test('l2m keeps literal hyperbolic inverse names as hyperbolic functions', () => {
   const code = core.l2m('atanhx + asinhy + acoshz');
   assert.equal(code, 'atanh(x) + asinh(y) + acosh(z)');
@@ -132,9 +217,24 @@ test('l2m converts compact trig power without parentheses', () => {
   assert.equal(code, 'sin(x)^2');
 });
 
+test('l2m converts compact trig power with optional spacing and command argument', () => {
+  const code = core.l2m('\\sin ^2\\theta');
+  assert.equal(code, 'sin(theta)^2');
+});
+
 test('l2m converts compact trig braced power without parentheses', () => {
   const code = core.l2m('\\cos^{3}y');
   assert.equal(code, 'cos(y)^3');
+});
+
+test('l2m converts compact trig braced power with command argument', () => {
+  const code = core.l2m('\\sin^{2}\\theta');
+  assert.equal(code, 'sin(theta)^2');
+});
+
+test('l2m converts compact trig braced power with braced argument', () => {
+  const code = core.l2m('\\sin^{2}{x}');
+  assert.equal(code, 'sin(x)^2');
 });
 
 test('l2m converts compact base-10 log application to function call', () => {
@@ -162,6 +262,20 @@ test('l2m keeps explicit parenthesized base-log as MATLAB log function', () => {
   assert.equal(code, 'log10(a) + log2(x)');
 });
 
+test('l2m throws for unsupported explicit numeric log base', () => {
+  assert.throws(
+    () => core.l2m('\\log_{3}x'),
+    /Unsupported logarithm base "3"/
+  );
+});
+
+test('l2m throws for unsupported symbolic log base', () => {
+  assert.throws(
+    () => core.l2m('\\log_{a}x'),
+    /Unsupported logarithm base "a"/
+  );
+});
+
 test('l2m treats plain log10 token as log of 10', () => {
   const code = core.l2m('log10');
   assert.equal(code, 'log(10)');
@@ -182,6 +296,38 @@ test('l2m handles indexed square root form', () => {
   assert.equal(code, 'nthroot(4,1)');
 });
 
+test('l2m handles deeply nested square root expressions', () => {
+  const code = core.l2m('\\left(\\sqrt{\\sqrt{\\sqrt{x}}}\\right)');
+  assert.equal(code, '(sqrt(sqrt(sqrt(x))))');
+});
+
+test('l2m inserts multiplication between number and parenthesis', () => {
+  const code = core.l2m('3\\left(x\\right) + 2.5(y) + 10\\left(z\\right)');
+  assert.equal(code, '3 * (x) + 2.5 * (y) + 10 * (z)');
+});
+
+test('l2m keeps single multiplication around cdot before Greek symbols', () => {
+  const code = core.l2m('2\\cdot \\Delta t');
+  assert.equal(code, '2*Delta * t');
+  assert.equal(code.includes('**'), false);
+});
+
+test('l2m keeps single multiplication around times before Greek symbols', () => {
+  const code = core.l2m('2\\times \\Delta t');
+  assert.equal(code, '2*Delta * t');
+  assert.equal(code.includes('**'), false);
+});
+
+test('l2m inserts multiplication between parenthesis and number', () => {
+  const code = core.l2m('\\left(x\\right)3 + (a + b)2.5 + sin(x)10');
+  assert.equal(code, '(x) * 3 + (a + b) * 2.5 + sin(x) * 10');
+});
+
+test('l2m converts compact single-letter digit token after coefficient into subscript', () => {
+  const code = core.l2m('\\left(x\\right)332a12');
+  assert.equal(code, '(x) * 332 * a_12');
+});
+
 test('l2m preserves consecutive trig functions with proper spacing and multiplication', () => {
   const code = core.l2m('\\sin a\\cos \\left(1\\right)');
   assert.equal(code, 'sin(a) * cos(1)');
@@ -195,6 +341,21 @@ test('l2m inserts multiplication for chained function calls followed by identifi
 test('l2m inserts multiplication for longer chained function calls', () => {
   const code = core.l2m('\\log \\left(2\\right)\\sin \\left(3\\right)\\ceil \\left(4\\right)a');
   assert.equal(code, 'log(2) * sin(3) * ceil(4) * a');
+});
+
+test('l2m applies numeric coefficients to plain function tokens', () => {
+  const code = core.l2m('2\\log x + 3\\sin x');
+  assert.equal(code, '2 * log(x) + 3 * sin(x)');
+});
+
+test('l2m inserts multiplication between adjacent braced identifiers', () => {
+  const code = core.l2m('\\left\\{asss\\right\\}\\left\\{aass\\right\\}');
+  assert.equal(code, 'asss * aass');
+});
+
+test('l2m inserts multiplication between braced identifier and following identifier', () => {
+  const code = core.l2m('\\left\\{bbb\\right\\}a');
+  assert.equal(code, 'bbb * a');
 });
 
 test('normalizeParenLatex wraps plain parentheses with left/right', () => {
@@ -232,6 +393,31 @@ test('autoSubscriptVariableNumbers canonicalizes single-letter unbraced subscrip
   assert.equal(out, 'a_{d} + c_{4}');
 });
 
+test('autoSubscriptVariableNumbers canonicalizes greek command with trailing digit', () => {
+  const out = core.autoSubscriptVariableNumbers('\\alpha 0 + \\rho2');
+  assert.equal(out, '\\alpha_{0} + \\rho_{2}');
+});
+
+test('autoSubscriptVariableNumbers canonicalizes greek command numeric subscript', () => {
+  const out = core.autoSubscriptVariableNumbers('\\alpha_02 + \\rho_7');
+  assert.equal(out, '\\alpha_{02} + \\rho_{7}');
+});
+
+test('autoSubscriptVariableNumbers absorbs trailing digits for greek command subscript', () => {
+  const out = core.autoSubscriptVariableNumbers('\\alpha_{0}23x');
+  assert.equal(out, '\\alpha_{023}x');
+});
+
+test('autoSubscriptVariableNumbers does not rewrite compact explicit log base forms', () => {
+  const out = core.autoSubscriptVariableNumbers('\\log_10 + \\log_2');
+  assert.equal(out, '\\log_10 + \\log_2');
+});
+
+test('autoSubscriptVariableNumbers treats partial and nabla like regular variables', () => {
+  const out = core.autoSubscriptVariableNumbers('\\partial 2 + \\nabla 3');
+  assert.equal(out, '\\partial_{2} + \\nabla_{3}');
+});
+
 test('autoSubscriptVariableNumbers does not rewrite multi-letter identifiers', () => {
   const out = core.autoSubscriptVariableNumbers('log223\\left(x\\right)+alpha12');
   assert.equal(out, 'log223\\left(x\\right)+alpha12');
@@ -240,6 +426,16 @@ test('autoSubscriptVariableNumbers does not rewrite multi-letter identifiers', (
 test('autoSubscriptVariableNumbers does not merge trailing digits into log base subscripts', () => {
   const out = core.autoSubscriptVariableNumbers('log_{10}1 + log_{2}3');
   assert.equal(out, 'log_{10}1 + log_{2}3');
+});
+
+test('autoSubscriptVariableNumbers converts compact coefficient-variable-digit tokens', () => {
+  const out = core.autoSubscriptVariableNumbers('\\left(x\\right)332a12');
+  assert.equal(out, '\\left(x\\right)332a_{12}');
+});
+
+test('autoSubscriptVariableNumbers canonicalizes unbraced numeric subscripts after coefficients', () => {
+  const out = core.autoSubscriptVariableNumbers('\\left(x\\right)33a_243');
+  assert.equal(out, '\\left(x\\right)33a_{243}');
 });
 
 test('normalizeCompactLogInput wraps compact explicit base-log numeric input', () => {
@@ -341,6 +537,14 @@ test('findAmbig + buildCode merges greek pair into subscript', () => {
   assert.equal(pairs.length, 1);
   const code = core.buildCode(toks, pairs, { [pairs[0].li]: 'm' });
   assert.equal(code, 'delta_t + x');
+});
+
+test('findAmbig + buildCode merges Delta pair into subscript', () => {
+  const toks = core.tokenize('Delta * t + x');
+  const pairs = core.findAmbig(toks);
+  assert.equal(pairs.length, 1);
+  const code = core.buildCode(toks, pairs, { [pairs[0].li]: 'm' });
+  assert.equal(code, 'Delta_t + x');
 });
 
 test('vectorize inserts dot operators', () => {

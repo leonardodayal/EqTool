@@ -24,9 +24,46 @@
   };
   const GREEK_WORDS = new Set([
     'delta', 'alpha', 'beta', 'gamma', 'rho', 'mu', 'theta', 'omega', 'sigma',
-    'phi', 'lambda', 'pi', 'eta', 'nu', 'xi', 'tau', 'epsilon', 'zeta'
+    'phi', 'lambda', 'pi', 'eta', 'nu', 'xi', 'tau', 'epsilon', 'zeta',
+    'Delta'
   ]);
   const CONSTANTS = { pi: '\\pi', Inf: '\\infty', inf: '\\infty', NaN: '\\text{NaN}' };
+  const LATEX_SYMBOL_MAP = {
+    // Lowercase Greek.
+    alpha: 'alpha', beta: 'beta', gamma: 'gamma', delta: 'delta', epsilon: 'epsilon', varepsilon: 'varepsilon',
+    zeta: 'zeta', eta: 'eta', theta: 'theta', vartheta: 'vartheta', iota: 'iota', kappa: 'kappa',
+    lambda: 'lambda', mu: 'mu', nu: 'nu', xi: 'xi', pi: 'pi', varpi: 'varpi', rho: 'rho',
+    varrho: 'varrho', sigma: 'sigma', varsigma: 'varsigma', tau: 'tau', upsilon: 'upsilon',
+    phi: 'phi', varphi: 'varphi', chi: 'chi', psi: 'psi', omega: 'omega',
+    // Uppercase Greek.
+    Gamma: 'Gamma', Delta: 'Delta', Theta: 'Theta', Lambda: 'Lambda', Xi: 'Xi', Pi: 'Pi',
+    Sigma: 'Sigma', Upsilon: 'Upsilon', Phi: 'Phi', Psi: 'Psi', Omega: 'Omega',
+    // Common math symbols used as named identifiers.
+    partial: 'partial', nabla: 'nabla', ell: 'ell', hbar: 'hbar', aleph: 'aleph', wp: 'wp',
+    Re: 'Re', Im: 'Im', imath: 'imath', jmath: 'jmath', infty: 'Inf'
+  };
+  const KNOWN_LATEX_COMMANDS = [
+    // Core symbol commands.
+    'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'varepsilon', 'zeta', 'eta', 'theta', 'vartheta',
+    'iota', 'kappa', 'lambda', 'mu', 'nu', 'xi', 'pi', 'varpi', 'rho', 'varrho', 'sigma', 'varsigma',
+    'tau', 'upsilon', 'phi', 'varphi', 'chi', 'psi', 'omega',
+    'Gamma', 'Delta', 'Theta', 'Lambda', 'Xi', 'Pi', 'Sigma', 'Upsilon', 'Phi', 'Psi', 'Omega',
+    'partial', 'nabla', 'ell', 'hbar', 'aleph', 'wp', 'Re', 'Im', 'imath', 'jmath', 'infty',
+    // Function and layout commands used in editor typing.
+    'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'sinh', 'cosh', 'tanh',
+    'asin', 'acos', 'atan', 'acot', 'asec', 'acsc', 'asinh', 'acosh', 'atanh',
+    'arcsin', 'arccos', 'arctan', 'exp', 'log', 'ln', 'sqrt', 'abs', 'floor', 'ceil',
+    'left', 'right', 'cdot', 'times', 'frac', 'operatorname', 'text', 'mathrm',
+    // Compatibility aliases supported by parser rewrites.
+    'arcsec', 'arccsc', 'arccot'
+  ];
+  const SYMBOLIC_WORDS = new Set([
+    'delta', 'alpha', 'beta', 'gamma', 'rho', 'mu', 'theta', 'omega', 'sigma',
+    'phi', 'lambda', 'pi', 'eta', 'nu', 'xi', 'tau', 'epsilon', 'zeta',
+    'varepsilon', 'vartheta', 'varpi', 'varrho', 'varsigma', 'upsilon', 'varphi', 'chi', 'psi',
+    'Gamma', 'Delta', 'Theta', 'Lambda', 'Xi', 'Pi', 'Sigma', 'Upsilon', 'Phi', 'Psi', 'Omega',
+    'partial', 'nabla', 'ell', 'hbar', 'aleph', 'wp', 'Re', 'Im', 'imath', 'jmath'
+  ]);
 
   const EXAMPLES_M2S = [
     '(sin(theta)^2 + acos(alpha_0)) / (2 * delta_t) + sqrt(rho_ref^3)'
@@ -344,36 +381,58 @@
     let out = latex;
     let prev = '';
     let guard = 0;
+    const symbolCommandPattern = Object.keys(LATEX_SYMBOL_MAP)
+      .slice()
+      .sort(function (a, b) { return b.length - a.length; })
+      .map(function (name) { return name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
+      .join('|');
 
     // Normalize incremental typing states until stable.
     while (out !== prev && guard < 6) {
       prev = out;
 
+      // Canonicalize compact/space-separated command+digits input, e.g. \alpha 0 -> \alpha_{0}.
+      out = out.replace(new RegExp('(\\\\(?:' + symbolCommandPattern + '))\\s*([0-9]+)', 'g'), function (_m, cmd, digits) {
+        return cmd + '_{' + digits + '}';
+      });
+
+      // Canonicalize unbraced numeric command subscripts, e.g. \alpha_02 -> \alpha_{02}.
+      out = out.replace(new RegExp('(\\\\(?:' + symbolCommandPattern + '))_([0-9]+)', 'g'), function (_m, cmd, digits) {
+        return cmd + '_{' + digits + '}';
+      });
+
+      // If a command numeric subscript already exists and more digits are typed
+      // before the next variable token, absorb them into the same subscript.
+      out = out.replace(new RegExp('(\\\\(?:' + symbolCommandPattern + '))_\\{([0-9]+)\\}\\s*([0-9]+)', 'g'), function (_m, cmd, sub, extra) {
+        return cmd + '_{' + sub + extra + '}';
+      });
+
       // If a numeric subscript already exists and more digits are typed immediately
       // after it, absorb them into the same subscript: a_{1}23 -> a_{123}.
-      out = out.replace(/(^|[^\\a-zA-Z0-9_])([a-zA-Z])_\{([a-zA-Z0-9]+)\}\s*([0-9]+)/g, function (_m, pre, v, sub, extra) {
+      out = out.replace(/(^|[^\\a-zA-Z_])([a-zA-Z])_\{([a-zA-Z0-9]+)\}\s*([0-9]+)/g, function (_m, pre, v, sub, extra) {
         return pre + v + '_{' + sub + extra + '}';
       });
 
       // Handle unbraced alphabetic subscripts with trailing digits emitted by MathQuill,
       // e.g. a_d123 -> a_{d123}, a_ref9 -> a_{ref9}.
-      out = out.replace(/(^|[^\\a-zA-Z0-9_])([a-zA-Z])_([a-zA-Z]+)\s*([0-9]+)/g, function (_m, pre, v, sub, extra) {
+      out = out.replace(/(^|[^\\a-zA-Z_])([a-zA-Z])_([a-zA-Z]+)\s*([0-9]+)/g, function (_m, pre, v, sub, extra) {
         return pre + v + '_{' + sub + extra + '}';
       });
 
       // Handle compact unbraced subscripts that may appear during edits: a_123 -> a_{123}.
-      out = out.replace(/(^|[^\\a-zA-Z0-9_])([a-zA-Z])_([0-9]+)/g, function (_m, pre, v, sub) {
+      out = out.replace(/(^|[^\\a-zA-Z_])([a-zA-Z])_([0-9]+)/g, function (_m, pre, v, sub) {
         return pre + v + '_{' + sub + '}';
       });
 
       // Canonicalize single-letter unbraced subscripts: a_d -> a_{d}.
-      out = out.replace(/(^|[^\\a-zA-Z0-9_])([a-zA-Z])_([a-zA-Z])(?![a-zA-Z0-9{])/g, function (_m, pre, v, sub) {
+      out = out.replace(/(^|[^\\a-zA-Z_])([a-zA-Z])_([a-zA-Z])(?![a-zA-Z0-9{])/g, function (_m, pre, v, sub) {
         return pre + v + '_{' + sub + '}';
       });
 
       // Convert only single-letter variable+number runs, e.g. a3 -> a_{3}.
-      // This avoids changing multi-letter names like log223 in v1.2.3.
-      out = out.replace(/(^|[^\\a-zA-Z0-9_{])([a-zA-Z])([0-9]+)/g, function (_m, pre, v, digits) {
+      // Allow digit-prefix contexts so compact terms like 332a12 normalize to 332a_{12}.
+      // This still avoids changing multi-letter names like log223.
+      out = out.replace(/(^|[^\\a-zA-Z_{])([a-zA-Z])([0-9]+)/g, function (_m, pre, v, digits) {
         return pre + v + '_{' + digits + '}';
       });
 
@@ -409,17 +468,6 @@
       return '\\' + fn + '\\left(' + value + '\\right)';
     });
     
-    // Ensure inverse hyperbolic function names typed as plain text render upright,
-    // e.g. atanh(1) -> \mathrm{atanh}\left(1\right).
-    out = out.replace(/(^|[^\\a-zA-Z])(atanh|asinh|acosh)(?=\s*(?:\\left\(|\())/g, function (_m, pre, fn) {
-      return pre + '\\mathrm{' + fn + '}';
-    });
-    
-    // Compact numeric form for inverse hyperbolic names: atanh1 -> \mathrm{atanh}\left(1\right).
-    out = out.replace(/(^|[^\\a-zA-Z])(atanh|asinh|acosh)\s*([0-9]+(?:\.[0-9]+)?)/g, function (_m, pre, fn, value) {
-      return pre + '\\mathrm{' + fn + '}\\left(' + value + '\\right)';
-    });
-
     // Merge appended digits into numeric trig arguments: \sin\left(1\right)0 -> \sin\left(10\right).
     out = out.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\\left\(([0-9]+(?:\.[0-9]+)?)\\right\)\s*([0-9]+)/g, function (_m, fn, value, extra) {
       return '\\' + fn + '\\left(' + value + extra + '\\right)';
@@ -601,11 +649,7 @@
     }
 
     // Preserve common symbolic names and constants as single identifiers.
-    const preserve = new Set([
-      'delta', 'alpha', 'beta', 'gamma', 'rho', 'mu', 'theta', 'omega', 'sigma',
-      'phi', 'lambda', 'pi', 'eta', 'nu', 'xi', 'tau', 'epsilon', 'zeta',
-      'Inf', 'NaN'
-    ]);
+    const preserve = new Set(Array.from(SYMBOLIC_WORDS).concat(['Inf', 'NaN']));
     if (preserve.has(token)) {
       return token;
     }
@@ -628,9 +672,110 @@
     return parts.join(' * ');
   }
 
+  function buildAlternationPattern(words) {
+    return words
+      .slice()
+      .sort(function (a, b) { return b.length - a.length; })
+      .map(function (w) { return w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
+      .join('|');
+  }
+
+  function replaceLatexSymbolCommands(src) {
+    let out = '';
+    let i = 0;
+
+    function lastNonSpaceChar(text) {
+      for (let p = text.length - 1; p >= 0; p -= 1) {
+        if (!/\s/.test(text[p])) {
+          return text[p];
+        }
+      }
+      return '';
+    }
+
+    while (i < src.length) {
+      if (src[i] !== '\\') {
+        out += src[i];
+        i += 1;
+        continue;
+      }
+
+      let j = i + 1;
+      while (j < src.length && /[a-zA-Z]/.test(src[j])) {
+        j += 1;
+      }
+      if (j === i + 1) {
+        out += src[i];
+        i += 1;
+        continue;
+      }
+
+      const cmdName = src.slice(i + 1, j);
+      const mapped = Object.prototype.hasOwnProperty.call(LATEX_SYMBOL_MAP, cmdName)
+        ? LATEX_SYMBOL_MAP[cmdName]
+        : null;
+
+      if (!mapped) {
+        out += src.slice(i, j);
+        i = j;
+        continue;
+      }
+
+      const prev = lastNonSpaceChar(out);
+      const precededByCommand = /\\[a-zA-Z]+\s*$/.test(out);
+      if (/[a-zA-Z0-9_)]/.test(prev) && !precededByCommand) {
+        out += ' * ';
+      }
+
+      out += mapped;
+      i = j;
+    }
+
+    return out;
+  }
+
+  function assertSupportedLogBases(src) {
+    const supportedBases = new Set(['2', '10']);
+    const patterns = [
+      /(?:\\log|log)_\{([^}]+)\}/g,
+      /(?:\\log|log)_\(([^)]+)\)/g,
+      /(?:\\log|log)_([a-zA-Z0-9]+)\b/g
+    ];
+
+    for (let p = 0; p < patterns.length; p += 1) {
+      const re = patterns[p];
+      let m = re.exec(src);
+      while (m) {
+        const base = (m[1] || '').trim();
+        if (base && !supportedBases.has(base)) {
+          throw new Error('Unsupported logarithm base "' + base + '". Temporary limitation: only base 2 and 10 are supported.');
+        }
+        m = re.exec(src);
+      }
+    }
+  }
+
+  // Helper function to find the matching closing brace for a given opening brace position
+  function findMatchingBrace(str, openPos) {
+    if (str[openPos] !== '{') return -1;
+    let depth = 0;
+    for (let i = openPos; i < str.length; i++) {
+      if (str[i] === '{') {
+        depth += 1;
+      } else if (str[i] === '}') {
+        depth -= 1;
+        if (depth === 0) return i;
+      }
+    }
+    return -1;
+  }
+
   function l2m(src) {
     let s = src.trim();
     let prot = { text: s, saved: [] };
+
+    // Temporary guard until change-of-base support is implemented.
+    assertSupportedLogBases(s);
 
     s = s.replace(/\\textcolor\{[^}]*\}\{([^}]*)\}/g, '$1');
     s = s.replace(/\\left\s*\(/g, '(').replace(/\\right\s*\)/g, ')');
@@ -645,9 +790,9 @@
     s = s.replace(/\\arccos\b/g, 'acos').replace(/\\arcsin\b/g, 'asin').replace(/\\arctan\b/g, 'atan');
     s = s.replace(/\\arccot\b/g, 'acot').replace(/\\arcsec\b/g, 'asec').replace(/\\arccsc\b/g, 'acsc');
     // Disambiguate \sin^{-1}h / \cos^{-1}h / \tan^{-1}h from asinh/acosh/atanh.
-    s = s.replace(/\\cos\s*\^(?:\{-1\}|-1)(?=\s*[a-zA-Z_])/g, 'acos ');
-    s = s.replace(/\\sin\s*\^(?:\{-1\}|-1)(?=\s*[a-zA-Z_])/g, 'asin ');
-    s = s.replace(/\\tan\s*\^(?:\{-1\}|-1)(?=\s*[a-zA-Z_])/g, 'atan ');
+    s = s.replace(/\\cos\s*\^(?:\{-1\}|-1)(?=\s*(?:[a-zA-Z_]|\\[a-zA-Z]+))/g, 'acos ');
+    s = s.replace(/\\sin\s*\^(?:\{-1\}|-1)(?=\s*(?:[a-zA-Z_]|\\[a-zA-Z]+))/g, 'asin ');
+    s = s.replace(/\\tan\s*\^(?:\{-1\}|-1)(?=\s*(?:[a-zA-Z_]|\\[a-zA-Z]+))/g, 'atan ');
     s = s.replace(/\\cos\s*\^(?:\{-1\}|-1)/g, 'acos').replace(/\\sin\s*\^(?:\{-1\}|-1)/g, 'asin').replace(/\\tan\s*\^(?:\{-1\}|-1)/g, 'atan');
     s = s.replace(/\\cot\^(?:\{-1\}|-1)/g, 'acot').replace(/\\sec\^(?:\{-1\}|-1)/g, 'asec').replace(/\\csc\^(?:\{-1\}|-1)/g, 'acsc');
     s = s.replace(/\\sinh\^(?:\{-1\}|-1)/g, 'asinh').replace(/\\cosh\^(?:\{-1\}|-1)/g, 'acosh').replace(/\\tanh\^(?:\{-1\}|-1)/g, 'atanh');
@@ -657,10 +802,13 @@
     s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\^([0-9])\s*\\left\s*\(/g, 'TRIGPOW_$1_$2_(');
     s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\^([0-9])\s*\(/g, 'TRIGPOW_$1_$2_(');
     // Compact trig power forms without explicit parentheses, e.g. \sin^2 x -> sin(x)^2.
-    s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\^\{([^}]+)\}\s*([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/g, function (_m, fn, exp, arg) {
+    s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\s*\^\{([^}]+)\}\s*(\\[a-zA-Z]+|[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/g, function (_m, fn, exp, arg) {
       return fn + '(' + arg + ')^' + exp;
     });
-    s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\^([0-9]+)\s*([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/g, function (_m, fn, exp, arg) {
+    s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\s*\^([0-9]+)\s*(\\[a-zA-Z]+|[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/g, function (_m, fn, exp, arg) {
+      return fn + '(' + arg + ')^' + exp;
+    });
+    s = s.replace(/\\(sinh|cosh|tanh|sin|cos|tan|cot|sec|csc)\s*\^\{([^}]+)\}\s*\{([^}]+)\}/g, function (_m, fn, exp, arg) {
       return fn + '(' + arg + ')^' + exp;
     });
 
@@ -694,26 +842,49 @@
     s = s.replace(/\\text\{([^}]+)\}/g, '$1');
     s = s.replace(/\\mathrm\{([^}]+)\}/g, '$1');
 
-    const greek = {
-      Delta: 'delta', delta: 'delta', alpha: 'alpha', beta: 'beta', gamma: 'gamma', rho: 'rho', mu: 'mu',
-      theta: 'theta', omega: 'omega', sigma: 'sigma', phi: 'phi', pi: 'pi', lambda: 'lambda', eta: 'eta',
-      nu: 'nu', xi: 'xi', tau: 'tau', epsilon: 'epsilon', zeta: 'zeta'
-    };
-    for (const k in greek) {
-      s = s.replace(new RegExp('\\\\' + k + '(?![a-zA-Z])', 'g'), greek[k]);
-    }
+    s = replaceLatexSymbolCommands(s);
 
-    s = s.replace(/\\infty/g, 'Inf');
     s = s.replace(/\\cdot\s*/g, '*').replace(/\\times\s*/g, '*');
 
     s = exFrac(s);
-    s = s.replace(/\\sqrt\[([^\]]+)\]\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g, function (_m, n, inner) {
-      return 'nthroot(' + l2m(inner) + ',' + l2m(n) + ')';
-    });
-    s = s.replace(/\\sqrt\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g, function (_m, inner) {
-      return 'sqrt(' + l2m(inner) + ')';
-    });
-    s = s.replace(/\\sqrt\s*([0-9]+(?:\.[0-9]+)?)(?!\s*[\[{])/g, 'sqrt($1)');
+    
+    // Handle \sqrt[n]{arg} and \sqrt{arg} with proper nested brace matching
+    // Process iteratively to handle arbitrarily nested sqrt calls like \sqrt{\sqrt{\sqrt{x}}}
+    let changed = true;
+    while (changed) {
+      changed = false;
+      // First handle \sqrt[n]{...}
+      let match = s.match(/\\sqrt\[([^\]]+)\]\{/);
+      if (match) {
+        const openPos = match.index + match[0].length - 1;
+        const closePos = findMatchingBrace(s, openPos);
+        if (closePos !== -1) {
+          const n = match[1];
+          const inner = s.substring(openPos + 1, closePos);
+          s = s.substring(0, match.index) + 'nthroot(' + l2m(inner) + ',' + l2m(n) + ')' + s.substring(closePos + 1);
+          changed = true;
+          continue;
+        }
+      }
+      // Then handle \sqrt{...}
+      match = s.match(/\\sqrt\{/);
+      if (match) {
+        const openPos = match.index + match[0].length - 1;
+        const closePos = findMatchingBrace(s, openPos);
+        if (closePos !== -1) {
+          const inner = s.substring(openPos + 1, closePos);
+          s = s.substring(0, match.index) + 'sqrt(' + l2m(inner) + ')' + s.substring(closePos + 1);
+          changed = true;
+          continue;
+        }
+      }
+      // Handle \sqrt digit form (no braces)
+      match = s.match(/\\sqrt\s*([0-9]+(?:\.[0-9]+)?)(?!\s*[\[{])/);
+      if (match) {
+        s = s.substring(0, match.index) + 'sqrt(' + match[1] + ')' + s.substring(match.index + match[0].length);
+        changed = true;
+      }
+    }
 
     // Normalize all subscript forms into braced form first so explicit grouping is preserved.
     s = s.replace(/([a-zA-Z0-9_]+)\s+_\s*\{([^}]+)\}/g, '$1_{$2}');
@@ -747,6 +918,12 @@
     s = convertSuperscripts(s);
     prot = protectBracedIdentifiers(s);
     s = prot.text;
+    // Preserve multiplication between adjacent braced identifiers,
+    // e.g. {asss}{aass} -> QVARPROTAQ * QVARPROTBQ.
+    s = s.replace(/(QVARPROT[A-Z]+Q)\s*(QVARPROT[A-Z]+Q)/g, '$1 * $2');
+    // Preserve multiplication when a braced identifier is followed by an identifier,
+    // e.g. {bbb}a -> QVARPROTAQ * a.
+    s = s.replace(/(QVARPROT[A-Z]+Q)\s*([a-zA-Z_][a-zA-Z0-9_]*)/g, '$1 * $2');
     s = s.replace(/\^([a-zA-Z0-9])/g, '^$1');
     s = s.replace(/\s+/g, ' ').trim();
 
@@ -758,8 +935,14 @@
     s = s.replace(new RegExp('(' + trigFn2 + ')\\s*([a-zA-Z_][a-zA-Z0-9_]*)(?![(])', 'g'), function (_m, fn, arg) {
       return fn + '(' + arg + ')';
     });
+    s = s.replace(new RegExp('(' + trigFn2 + ')\\s*\\*\\s*([a-zA-Z_][a-zA-Z0-9_]*|QVARPROT[A-Z]+Q)(?!\\s*\\()', 'g'), function (_m, fn, arg) {
+      return fn + '(' + arg + ')';
+    });
     const invTrigNoParen = '(?:asinh|acosh|atanh|asin(?!h)|acos(?!h)|atan(?!h)|acot|asec|acsc)';
-    s = s.replace(new RegExp('(' + invTrigNoParen + ')\s*([a-zA-Z_][a-zA-Z0-9_]*)(?![(])', 'g'), function (_m, fn, arg) {
+    s = s.replace(new RegExp('(' + invTrigNoParen + ')\\s*([a-zA-Z_][a-zA-Z0-9_]*)(?![(])', 'g'), function (_m, fn, arg) {
+      return fn + '(' + arg + ')';
+    });
+    s = s.replace(new RegExp('(' + invTrigNoParen + ')\\s*\\*\\s*([a-zA-Z_][a-zA-Z0-9_]*|QVARPROT[A-Z]+Q)(?!\\s*\\()', 'g'), function (_m, fn, arg) {
       return fn + '(' + arg + ')';
     });
 
@@ -780,6 +963,10 @@
 
     // Compact plain log numeric input from LaTeX: \log1 -> log(1), \log101 -> log(101).
     s = s.replace(/\blog\s*([0-9]+(?:\.[0-9]+)?)(?![0-9(])/g, 'log($1)');
+
+    // Plain log followed by a symbolic/variable token should be treated as function
+    // application, e.g. log x -> log(x).
+    s = s.replace(/\blog\s+([a-zA-Z_][a-zA-Z0-9_]*|QVARPROT[A-Z]+Q)(?!\s*\()/g, 'log($1)');
 
     // Merge trailing digits into existing numeric log arguments: log(1)0 -> log(10).
     s = s.replace(/\blog\(([0-9]+(?:\.[0-9]+)?)\)\s*([0-9]+)/g, 'log($1$2)');
@@ -807,21 +994,37 @@
     s = s.replace(/QLOGBASE10FNQ/g, 'log10');
     s = s.replace(/QLOGBASE2FNQ/g, 'log2');
 
-    const fnNoParen = '(?:arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|sqrt|floor|ceil|log10|log2|sin|cos|tan|cot|sec|csc|exp|abs|log|ln|atan2|nthroot)';
-    s = s.replace(new RegExp('\\b(' + fnNoParen + ')\\s+([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\\.[0-9]+)?|QVARPROT[A-Z]+Q)(?!\\s*\\()', 'g'), function (_m, fn, arg) {
+    const callableFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|sqrt|floor|ceil|log10|log2|sin|cos|tan|cot|sec|csc|exp|abs|log|ln|atan2|nthroot';
+    const knownFnPattern = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|floor|ceil|log10|log2|sqrt|sin|cos|tan|cot|sec|csc|exp|log|ln|abs';
+
+    s = s.replace(new RegExp('\\b(' + callableFnPattern + ')\\s+([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\\.[0-9]+)?|QVARPROT[A-Z]+Q)(?!\\s*\\()', 'g'), function (_m, fn, arg) {
       return fn + '(' + arg + ')';
     });
 
-    // Handle functions followed directly by parentheses with optional whitespace, e.g. cos (1) -> cos(1).
-    s = s.replace(new RegExp('\\b(' + fnNoParen + ')\\s+\\(', 'g'), '$1(');
+    // Ensure plain log tokens with variable-like arguments become function calls,
+    // even after intermediate spacing/normalization rewrites.
+    s = s.replace(/\blog\s+([a-zA-Z_][a-zA-Z0-9_]*|QVARPROT[A-Z]+Q)\b(?!\s*\()/g, 'log($1)');
 
-    s = s.replace(/(delta|alpha|beta|gamma|rho|mu|theta|omega|sigma|phi|lambda|pi|eta|nu|xi|tau|epsilon|zeta)\s+([a-zA-Z_][a-zA-Z0-9_]*)/g, function (_m, g, r) {
+    // Numeric coefficients before function calls should remain explicit multiplication,
+    // e.g. 2 log(x) -> 2 * log(x).
+    s = s.replace(new RegExp('([0-9]+\\.?[0-9]*)\\s+(?=(' + callableFnPattern + ')\\s*\\()', 'g'), '$1 * ');
+
+    // Handle functions followed directly by parentheses with optional whitespace, e.g. cos (1) -> cos(1).
+    s = s.replace(new RegExp('\\b(' + callableFnPattern + ')\\s+\\(', 'g'), '$1(');
+
+    const symbolicWordPattern = buildAlternationPattern(Array.from(SYMBOLIC_WORDS));
+    const symbolicCallablePattern = buildAlternationPattern(Array.from(SYMBOLIC_WORDS).filter(function (name) {
+      return /^[a-z]/.test(name);
+    }));
+    // If a symbolic command is explicitly used as a call with parentheses,
+    // preserve it as a function-like token (e.g. \psi \left(s\right) -> psi(s)).
+    s = s.replace(new RegExp('\\b(' + symbolicCallablePattern + ')\\s+\\(', 'g'), '$1(');
+    s = s.replace(new RegExp('(' + symbolicWordPattern + ')\\s+([a-zA-Z_][a-zA-Z0-9_]*)', 'g'), function (_m, g, r) {
       return g + ' * ' + r;
     });
 
-    const knownFn = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|floor|ceil|log10|log2|sqrt|sin|cos|tan|cot|sec|csc|exp|log|ln|abs';
     const protectedNames = new Set(['asin', 'acos', 'atan', 'asinh', 'acosh', 'atanh', 'acot', 'asec', 'acsc']);
-    s = s.replace(new RegExp('([a-zA-Z_][a-zA-Z0-9_]*)(' + knownFn + ')\\(', 'g'), function (_m, pre, fn) {
+    s = s.replace(new RegExp('([a-zA-Z_][a-zA-Z0-9_]*)(' + knownFnPattern + ')\\(', 'g'), function (_m, pre, fn) {
       const combined = pre + fn;
       if (protectedNames.has(combined)) {
         return combined + '(';
@@ -833,9 +1036,29 @@
     // identifier, e.g. log(1234)a -> log(1234) * a.
     s = s.replace(/\)\s*([a-zA-Z_][a-zA-Z0-9_]*|QVARPROT[A-Z]+Q)(?!\s*\()/g, ') * $1');
 
+    // Insert multiplication between a closed group/function call and a following number,
+    // e.g. (x)3 -> (x) * 3.
+    s = s.replace(/\)\s*([0-9]+\.?[0-9]*)/g, ') * $1');
+
+    // Insert multiplication between a number and a following opening parenthesis,
+    // e.g. 3(x) -> 3 * (x), but not for function names like log10, log2.
+    // Ensure we don't match when the number is part of "log10", "log2", etc.
+    s = s.replace(/(?<![a-zA-Z_])([0-9]+\.?[0-9]*)\s*\((?!.*LOGBASE)/g, function (match, num, offset) {
+      // Check if this number is part of a function name like 'log10' or 'log2'
+      const before = s.substring(Math.max(0, offset - 10), offset);
+      if (/(?:log)\d*$/.test(before)) {
+        return match; // Don't modify if part of a function name
+      }
+      return num + ' * (';
+    });
+
     s = s.replace(/([0-9]+\.?[0-9]*)([a-zA-Z_][a-zA-Z0-9_]*)/g, function (_m, n, v) {
       return n + ' * ' + v;
     });
+
+    // Convert compact single-letter+digits factors into MATLAB subscript form,
+    // e.g. a12 -> a_12 (including cases like 332a12 -> 332 * a_12).
+    s = s.replace(/\b([a-zA-Z])([0-9]+)\b/g, '$1_$2');
 
     // Restore protected subscript text.
     for (let i = 0; i < subscriptProtections.length; i += 1) {
@@ -857,10 +1080,10 @@
     s = s.replace(/\)\s*\(/g, ') * (');
 
     // Insert explicit multiplication between closing paren and a function name, e.g. sin(a) cos(1) -> sin(a) * cos(1).
-    const fnName = 'arcsin|arccos|arctan|asinh|acosh|atanh|asin|acos|atan|acot|asec|acsc|sinh|cosh|tanh|floor|ceil|log10|log2|sqrt|sin|cos|tan|cot|sec|csc|exp|log|ln|abs|atan2|nthroot';
-    s = s.replace(new RegExp('\\)\\s*(' + fnName + ')\\(', 'g'), ') * $1(');
+    s = s.replace(new RegExp('\\)\\s*(' + callableFnPattern + ')\\(', 'g'), ') * $1(');
 
     s = restoreBracedIdentifiers(s, prot.saved);
+    s = s.replace(/\blog\s+([a-zA-Z_][a-zA-Z0-9_]*)\b/g, 'log($1)');
     return s.replace(/\s+/g, ' ').trim();
   }
 
@@ -985,6 +1208,10 @@
     }
 
     return result;
+  }
+
+  function getKnownLatexCommands() {
+    return KNOWN_LATEX_COMMANDS.slice();
   }
 
   function escHtml(s) {
@@ -1148,6 +1375,7 @@
     cleanLatexForCopy: cleanLatexForCopy,
     normalizeParenLatex: normalizeParenLatex,
     autoSubscriptVariableNumbers: autoSubscriptVariableNumbers,
-    normalizeCompactLogInput: normalizeCompactLogInput
+    normalizeCompactLogInput: normalizeCompactLogInput,
+    getKnownLatexCommands: getKnownLatexCommands
   };
 }));

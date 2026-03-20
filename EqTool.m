@@ -12,7 +12,7 @@ function EqTool()
     srcFile   = fullfile(toolDir, 'matlab_equation_tool.html');
     % Write bundled file to a versioned userpath folder (always writable, even in read-only install dirs).
     % Bump this folder name when forcing a clean runtime cache.
-    userDir   = fullfile(userpath, 'EqTool_v2');
+    userDir   = fullfile(userpath, 'EqTool_v3');
     if ~isfolder(userDir), mkdir(userDir); end
     bundled   = fullfile(userDir, 'matlab_equation_tool_bundled.html');
 

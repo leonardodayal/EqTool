@@ -220,6 +220,12 @@ textarea::placeholder { color:var(--text3); }
   gap:12px;
 }
 
+.code-block.has-error {
+  border-color:#f87171;
+  background:#3b151533;
+  box-shadow:0 0 0 1px #f8717144 inset;
+}
+
 .code-tokens { flex:1; line-height:1.8; word-break:break-all; }
 
 .copy-btn,.vec-btn,.sym-copy-btn {
@@ -272,6 +278,13 @@ textarea::placeholder { color:var(--text3); }
 }
 
 .warn-badge.hidden { display:none; }
+.s2m-log-warn {
+  font-size:11px;
+  font-family:var(--mono);
+  color:#f59e0b;
+  margin-top:6px;
+}
+.s2m-log-warn.hidden { display:none; }
 .ambig-hint { font-size:11px; font-family:var(--mono); color:#fb923c77; margin-top:6px; }
 .ambig-hint.hidden { display:none; }
 
