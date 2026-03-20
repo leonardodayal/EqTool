@@ -307,7 +307,9 @@
       return latex;
     }
 
-    const src = latex;
+    const src = latex
+      .replace(/\\log_([a-zA-Z0-9]+)(?!\{)/g, '\\log_{$1}')
+      .replace(/\blog_([a-zA-Z0-9]+)(?!\{)/g, 'log_{$1}');
     let out = '';
     let i = 0;
 
