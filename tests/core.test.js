@@ -74,7 +74,7 @@ test('l2m inserts multiplication between adjacent parenthesized groups', () => {
 
 test('l2m handles nested stacked powers with braces', () => {
   const code = core.l2m('\\frac{x^{2-x^{2-4^{-4}}}}{d}');
-  assert.equal(code, '(x^(2-x^(2-4^(-4))))/(d)');
+  assert.equal(code, '(x^(2-x^(2-4^(-4))))/d');
 });
 
 test('l2m splits subscript-adjacent mixed-case symbols into factors', () => {
@@ -85,6 +85,26 @@ test('l2m splits subscript-adjacent mixed-case symbols into factors', () => {
 test('l2m inserts multiplication after explicit symbolic subscript', () => {
   const code = core.l2m('a_{e}f');
   assert.equal(code, 'a_e * f');
+});
+
+test('l2m preserves chained symbolic subscripts without mixed braced output', () => {
+  const code = core.l2m('a_{s}_{s}_{s}');
+  assert.equal(code, 'a_s_s_s');
+});
+
+test('l2m flattens nested symbolic subscripts into chain-safe form', () => {
+  const code = core.l2m('a_{s_{s_s}}');
+  assert.equal(code, 'a_s_s_s');
+});
+
+test('l2m keeps chained symbolic subscripts stable in fraction denominator', () => {
+  const code = core.l2m('\\frac{1}{a_{s}_{s}}');
+  assert.equal(code, '1/a_s_s');
+});
+
+test('l2m removes redundant fraction parentheses for atomic terms', () => {
+  const code = core.l2m('\\frac{1}{x}+\\frac{x}{2}+\\frac{1}{x+y}');
+  assert.equal(code, '1/x+x/2+1/(x+y)');
 });
 
 test('l2m preserves explicitly braced mixed subscript text', () => {
@@ -503,6 +523,44 @@ test('astTex applies sized parentheses in nested/tall contexts', () => {
   core.resetColors();
   const tex = core.astTex(core.parseMatlab('((x*(x^2)))'));
   assert.match(tex, /\\big|\\Big|\\bigg|\\Bigg/);
+});
+
+test('astTex omits redundant explicit parentheses around fraction operands', () => {
+  core.resetColors();
+  const tex = core.astTex(core.parseMatlab('x=(-b+sqrt(b^2-4*a*c))/(2*a)'));
+  assert.match(tex, /= \\dfrac\{/);
+  assert.equal(tex.includes('\\Big('), false);
+  assert.equal(tex.includes('\\big('), false);
+});
+
+test('astTex keeps outer parentheses larger than inner for nested fractions', () => {
+  core.resetColors();
+  const tex = core.astTex(core.parseMatlab('((x/(y+1)))'));
+  const outerPos = tex.indexOf('\\Bigg(');
+  const innerPos = tex.indexOf('\\bigg(');
+  assert.equal(outerPos >= 0, true);
+  assert.equal(innerPos >= 0, true);
+  assert.equal(outerPos < innerPos, true);
+});
+
+test('astTex renders long rotor sample without clipping-sensitive size inversion', () => {
+  core.resetColors();
+  const src = 'C_T ./ sigma = a ./ 4 .* ((2 ./ 3 + mu .^ 2) .* theta_0 + (1 ./ 2 + 1 ./ 2 .* mu .^ 2) .* theta_T + mu .* (alpha_TTP - (B_1 + a_1_s)) - lambda_1)';
+  const line = core.splitLines(src)[0];
+  const tex = core.astTex(core.parseMatlab(line));
+  const outerPos = tex.indexOf('\\Bigg(');
+  const innerPos = tex.indexOf('\\bigg(');
+  assert.equal(outerPos >= 0, true);
+  assert.equal(innerPos >= 0, true);
+  assert.equal(outerPos < innerPos, true);
+  assert.match(tex, /a_\{\\text\{1\\_s\}\}/);
+});
+
+test('astTex escapes underscore inside subscript text', () => {
+  core.resetColors();
+  const tex = core.astTex(core.parseMatlab('a_1_s + B_1'));
+  assert.match(tex, /a_\{\\text\{1\\_s\}\}/);
+  assert.match(tex, /B_\{\\text\{1\}\}/);
 });
 
 test('colorizeMatlabSource highlights nested parenthesis groups', () => {

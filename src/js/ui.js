@@ -8,7 +8,6 @@
     currentMode: 'm2s',
     mqField: null,
     isNormalizingEdit: false,
-    skipAutoSubscriptOnce: false,
     isVec: false,
     currentToks: [],
     ambigPairs: [],
@@ -64,6 +63,20 @@
     }
 
     const lines = rawInput.split(/\r?\n/);
+
+    // For multi-line MATLAB snippets, allow parentheses to balance across
+    // line boundaries. In that case, line-by-line warnings are noisy false
+    // positives even though the full expression is valid.
+    const nonCommentJoined = lines
+      .map(function (line) { return line.replace(/%.*$/, ''); })
+      .join(' ');
+    const globalMismatch = core.findParenMismatch(nonCommentJoined);
+    if (lines.length > 1 && !globalMismatch.hasMismatch) {
+      warnEl.classList.add('hidden');
+      warnEl.innerHTML = '';
+      return;
+    }
+
     const items = [];
     for (let i = 0; i < lines.length; i += 1) {
       const line = lines[i];
@@ -146,6 +159,83 @@
     state.lastCode = state.isVec ? core.vectorize(rawCode) : rawCode;
     byId('s2m-tokens').innerHTML = core.synHL(state.currentToks, state.ambigPairs, state.ambigRes, state.isVec);
     updateBadge();
+  }
+
+  function handleGlobalJumpShortcuts(evt) {
+    if (!evt) {
+      return;
+    }
+    const key = evt.key;
+    const isChordJump = (evt.metaKey || evt.ctrlKey) && !evt.altKey && (key === 'ArrowLeft' || key === 'ArrowRight');
+    const isHomeEndJump = !evt.metaKey && !evt.ctrlKey && !evt.altKey && (key === 'Home' || key === 'End');
+    const isJumpChord = isChordJump || isHomeEndJump;
+    if (!isJumpChord) {
+      return;
+    }
+
+    const active = document.activeElement;
+    const target = evt.target;
+    const mqWrap = byId('mq-wrap');
+    const inM2S = (active && active.id === 'm2s-input') || (target && target.id === 'm2s-input');
+    const inS2M = mqWrap && (
+      (active && (active.id === 'mq-field' || mqWrap.contains(active))) ||
+      (target && (target.id === 'mq-field' || (target.closest && target.closest('#mq-wrap'))))
+    );
+    if (!inM2S && !inS2M) {
+      return;
+    }
+
+    evt.preventDefault();
+
+    if (inM2S) {
+      const input = byId('m2s-input');
+      if (!input) {
+        return;
+      }
+      const pos = (key === 'ArrowLeft' || key === 'Home') ? 0 : (input.value || '').length;
+      input.selectionStart = pos;
+      input.selectionEnd = pos;
+      input.focus();
+      return;
+    }
+
+    if (!state.mqField) {
+      return;
+    }
+    if ((key === 'ArrowLeft' || key === 'Home') && typeof state.mqField.moveToLeftEnd === 'function') {
+      state.mqField.moveToLeftEnd();
+    } else if ((key === 'ArrowRight' || key === 'End') && typeof state.mqField.moveToRightEnd === 'function') {
+      state.mqField.moveToRightEnd();
+    }
+    requestAnimationFrame(function () {
+      const wrap = byId('mq-wrap');
+      if (wrap) {
+        wrap.scrollLeft = (key === 'ArrowLeft' || key === 'Home') ? 0 : wrap.scrollWidth;
+      }
+      ensureMqCursorVisible();
+    });
+  }
+
+  function ensureMqCursorVisible() {
+    const wrap = byId('mq-wrap');
+    if (!wrap) {
+      return;
+    }
+    const cursor = wrap.querySelector('.mq-cursor');
+    if (!cursor) {
+      return;
+    }
+    const wrapRect = wrap.getBoundingClientRect();
+    const curRect = cursor.getBoundingClientRect();
+    const pad = 24;
+
+    if (curRect.right > wrapRect.right - pad) {
+      wrap.scrollLeft += (curRect.right - (wrapRect.right - pad));
+      return;
+    }
+    if (curRect.left < wrapRect.left + pad) {
+      wrap.scrollLeft -= ((wrapRect.left + pad) - curRect.left);
+    }
   }
 
   function flipMode() {
@@ -680,10 +770,6 @@
     const MQ = MathQuill.getInterface(2);
     state.mqField = MQ.MathField(byId('mq-field'), {
       spaceBehavesLikeTab: true,
-      leftRightIntoCmdGoes: 'up',
-      restrictMismatchedBrackets: true,
-      supSubsRequireOperand: true,
-      charsThatBreakOutOfSupSub: '+-=<>',
       autoCommands: 'pi theta rho sqrt',
       autoOperatorNames: 'sin cos tan cot sec csc sinh cosh tanh asin acos atan acot asec acsc asinh acosh atanh exp log ln sqrt abs floor ceil',
       handlers: {
@@ -707,19 +793,7 @@
             }
 
             const repairedLatex = repairLikelyCommandGlitches(rawLatex);
-            if (repairedLatex !== rawLatex) {
-              state.isNormalizingEdit = true;
-              const repairedOk = safeSetMathFieldLatex(repairedLatex);
-              state.isNormalizingEdit = false;
-              renderS2M(repairedOk ? repairedLatex : rawLatex);
-              return;
-            }
-
-            const parenNormalized = core.normalizeCompactLogInput(core.normalizeParenLatex(rawLatex));
-            const normalized = state.skipAutoSubscriptOnce
-              ? parenNormalized
-              : core.autoSubscriptVariableNumbers(parenNormalized);
-            state.skipAutoSubscriptOnce = false;
+            const normalized = core.normalizeParenLatex(repairedLatex);
             if (normalized !== rawLatex) {
               state.isNormalizingEdit = true;
               const ok = safeSetMathFieldLatex(normalized);
@@ -729,10 +803,12 @@
             }
 
             renderS2M(rawLatex);
+            requestAnimationFrame(ensureMqCursorVisible);
           } catch (_err) {
             // Keep the editor responsive even if MathQuill throws during incremental edits.
             try {
               renderS2M(state.mqField.latex());
+              requestAnimationFrame(ensureMqCursorVisible);
             } catch (__err) {
               renderS2M('');
             }
@@ -743,19 +819,7 @@
 
     byId('mq-wrap').addEventListener('click', function () {
       state.mqField.focus();
-    });
-
-    byId('mq-wrap').addEventListener('keydown', function (evt) {
-      if (!evt || !evt.key) {
-        return;
-      }
-      if (evt.key === 'Backspace' || evt.key === 'Delete') {
-        state.skipAutoSubscriptOnce = true;
-        return;
-      }
-
-      // Clear stale delete intent so the next typed character can auto-subscript.
-      state.skipAutoSubscriptOnce = false;
+      requestAnimationFrame(ensureMqCursorVisible);
     });
 
     // Force plain-text paste to be interpreted as LaTeX input for reliable round-trip workflows.
@@ -771,7 +835,7 @@
       }
 
       evt.preventDefault();
-      const normalized = core.autoSubscriptVariableNumbers(core.normalizeCompactLogInput(core.normalizeParenLatex(pasted)));
+      const normalized = core.normalizeParenLatex(pasted);
       // Insert at cursor position instead of replacing entire field
       try {
         state.mqField.write(normalized);
@@ -781,11 +845,32 @@
       const fullLatex = state.mqField.latex();
       renderS2M(fullLatex);
       state.mqField.focus();
+      requestAnimationFrame(ensureMqCursorVisible);
     });
   }
 
   function bindEvents() {
     byId('flip-btn').addEventListener('click', flipMode);
+    document.addEventListener('keydown', handleGlobalJumpShortcuts, true);
+    byId('m2s-input').addEventListener('keydown', function (evt) {
+      // Some embedded webview hosts swallow default Enter behavior in textareas.
+      // Force plain Enter to insert a newline so multiline MATLAB input remains usable.
+      if (!evt || evt.key !== 'Enter' || evt.shiftKey || evt.ctrlKey || evt.metaKey || evt.altKey) {
+        return;
+      }
+      const input = byId('m2s-input');
+      if (!input) {
+        return;
+      }
+      evt.preventDefault();
+      const start = input.selectionStart;
+      const end = input.selectionEnd;
+      const value = input.value || '';
+      input.value = value.slice(0, start) + '\n' + value.slice(end);
+      input.selectionStart = start + 1;
+      input.selectionEnd = start + 1;
+      renderM2S();
+    });
     byId('m2s-input').addEventListener('input', renderM2S);
     byId('m2s-input').addEventListener('scroll', function () {
       const overlay = byId('m2s-input-color');
@@ -798,6 +883,27 @@
     });
     byId('m2s-demo-btn').addEventListener('click', function () { loadEx1(0); });
     byId('s2m-demo-btn').addEventListener('click', function () { loadEx2(0); });
+    byId('m2s-clear-btn').addEventListener('click', function () {
+      const input = byId('m2s-input');
+      if (!input) {
+        return;
+      }
+      input.value = '';
+      renderM2S();
+      input.focus();
+    });
+    byId('s2m-clear-btn').addEventListener('click', function () {
+      if (!state.mqField) {
+        return;
+      }
+      state.mqField.latex('');
+      renderS2M('');
+      state.mqField.focus();
+      const wrap = byId('mq-wrap');
+      if (wrap) {
+        wrap.scrollLeft = 0;
+      }
+    });
     byId('sym-copy-btn').addEventListener('click', copyLatex);
     byId('vec-btn').addEventListener('click', toggleVec);
     byId('copy-btn').addEventListener('click', copyCode);
@@ -824,7 +930,7 @@
   function init() {
     bindEvents();
     initMathField();
-    loadEx1(0);
+    renderM2S();
   }
 
   globalThis.toggleAmbig = toggleAmbig;

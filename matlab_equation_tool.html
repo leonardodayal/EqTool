@@ -69,7 +69,7 @@
 <body>
 
 <header>
-  <div class="title">matlab_equation_tool <span>v1.4.0</span></div>
+  <div class="title">matlab_equation_tool <span>v1.4.3</span></div>
   <div class="mode-bar">
     <div class="mode-label active" id="lbl-left">MATLAB</div>
     <div class="flip-btn" id="flip-btn" title="Flip direction">&#8644;</div>
@@ -87,6 +87,7 @@
     <div class="m2s-input-wrap" id="m2s-input-wrap">
       <pre class="m2s-input-color" id="m2s-input-color"></pre>
       <textarea id="m2s-input" placeholder="e.g. rho * u^2 / (2*delta_t) + sqrt(p_ref)" spellcheck="false"></textarea>
+      <button class="clear-btn clear-btn-in-field" id="m2s-clear-btn" title="clear MATLAB input">x</button>
     </div>
     <div class="row-label">symbolic view</div>
     <div class="eq-output-wrap">
@@ -105,13 +106,11 @@
       <button class="ex-btn" id="s2m-demo-btn">demo</button>
     </div>
     <div class="row-label">equation editor</div>
-    <div class="mq-wrap" id="mq-wrap"><span id="mq-field"></span></div>
+    <div class="mq-wrap" id="mq-wrap"><span id="mq-field"></span><button class="clear-btn clear-btn-in-field" id="s2m-clear-btn" title="clear equation editor">x</button></div>
     <div class="hint">
       <code>/</code> fraction &nbsp;&middot;&nbsp;
       <code>^</code> power &nbsp;&middot;&nbsp;
-      <code>\sqrt</code> radical &nbsp;&middot;&nbsp;
-      <code>\rho</code> <code>\theta</code> <code>\Delta</code> greek &nbsp;&middot;&nbsp;
-      arrow keys navigate slots
+      <code>\sqrt</code> radical
     </div>
     <div class="row-label">
       matlab code

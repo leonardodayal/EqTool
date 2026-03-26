@@ -128,7 +128,6 @@
     }
     return toks;
   }
-
   let _T = [];
   let _P = 0;
 
@@ -219,7 +218,7 @@
     const fg = getVarColor(name)[0];
     const parts = name.split('_');
     const base = parts[0];
-    const sub = parts.slice(1).join('_');
+    const sub = parts.slice(1).join('_').replace(/_/g, '\\_');
     return '\\textcolor{' + fg + '}{' + (sub ? base + '_{\\text{' + sub + '}}' : base) + '}';
   }
 
@@ -242,7 +241,9 @@
   }
 
   function wrapSizedParen(innerTex, depth, hasTallContent) {
-    const sizeLevel = Math.min(4, depth + (hasTallContent ? 1 : 0));
+    // Keep outer parentheses visually larger than nested inner ones.
+    const baseSize = hasTallContent ? 4 : 3;
+    const sizeLevel = Math.max(0, Math.min(4, baseSize - depth));
     const sizeCmd = ['', '\\big', '\\Big', '\\bigg', '\\Bigg'];
     const cmd = sizeCmd[sizeLevel];
     const openTok = cmd ? cmd + '(' : '(';
@@ -257,7 +258,7 @@
     if (node.t === 'var') { return varTex(node.v); }
     if (node.t === 'paren') {
       const inner = astTex(node.inner, level + 1);
-      return wrapSizedParen(inner, level + 1, containsTallContent(node.inner));
+      return wrapSizedParen(inner, level, containsTallContent(node.inner));
     }
     if (node.t === 'unary') { return '-' + astTex(node.arg, level); }
     if (node.t === 'other') { return node.v; }
@@ -288,7 +289,9 @@
       }
 
       if (op === '/' || op === './') {
-        return '\\dfrac{' + astTex(left, level) + '}{' + astTex(right, level) + '}';
+        const numNode = left.t === 'paren' ? left.inner : left;
+        const denNode = right.t === 'paren' ? right.inner : right;
+        return '\\dfrac{' + astTex(numNode, level) + '}{' + astTex(denNode, level) + '}';
       }
 
       if (op === '^' || op === '.^') {
@@ -886,6 +889,19 @@
       }
     }
 
+    // Collapse chained braced subscripts into one chained subscript token,
+    // e.g. a_{s}_{s}_{s} -> a_{s_s_s}. This keeps MATLAB output stable and
+    // avoids generating mixed forms like a_s_{s}.
+    let chainChanged = true;
+    while (chainChanged) {
+      chainChanged = false;
+      const collapsed = s.replace(/([a-zA-Z][a-zA-Z0-9]*)_\{([a-zA-Z0-9_]+)\}_\{([a-zA-Z0-9_]+)\}/g, '$1_{$2_$3}');
+      if (collapsed !== s) {
+        s = collapsed;
+        chainChanged = true;
+      }
+    }
+
     // Normalize all subscript forms into braced form first so explicit grouping is preserved.
     s = s.replace(/([a-zA-Z0-9_]+)\s+_\s*\{([^}]+)\}/g, '$1_{$2}');
     s = s.replace(/([a-zA-Z0-9_]+)\s+_\s*([a-zA-Z0-9])/g, '$1_{$2}');
@@ -1083,6 +1099,39 @@
     s = s.replace(new RegExp('\\)\\s*(' + callableFnPattern + ')\\(', 'g'), ') * $1(');
 
     s = restoreBracedIdentifiers(s, prot.saved);
+
+    // Canonicalize nested/braced symbolic subscripts and merge split chains
+    // that may appear after intermediate rewrites.
+    let flattenSubChanged = true;
+    while (flattenSubChanged) {
+      flattenSubChanged = false;
+      const flattened = s
+        .replace(/_\{([a-zA-Z0-9_]+)_\{([a-zA-Z0-9_]+)\}\}/g, '_$1_$2')
+        .replace(/_\{([a-zA-Z0-9_]+)\}/g, '_$1')
+        .replace(/_([a-zA-Z0-9_]+)_\{([a-zA-Z0-9_]+)\}/g, '_$1_$2');
+      if (flattened !== s) {
+        s = flattened;
+        flattenSubChanged = true;
+      }
+    }
+
+    let subMergeChanged = true;
+    while (subMergeChanged) {
+      subMergeChanged = false;
+      const merged = s.replace(/\b([a-zA-Z][a-zA-Z0-9_]*)_\s*\*\s*([a-zA-Z0-9_]+)/g, '$1_$2');
+      if (merged !== s) {
+        s = merged;
+        subMergeChanged = true;
+      }
+    }
+
+    // Simplify redundant parentheses from fraction conversion only when an
+    // atomic number/identifier is wrapped, e.g. (1)/(x) -> 1/x.
+    const fracAtomic = '(?:[0-9]+(?:\\.[0-9]+)?|[a-zA-Z][a-zA-Z0-9_]*)';
+    s = s.replace(new RegExp('\\(\\s*(' + fracAtomic + ')\\s*\\)\\s*/\\s*\\(\\s*(' + fracAtomic + ')\\s*\\)', 'g'), '$1/$2');
+    s = s.replace(new RegExp('\\(\\s*(' + fracAtomic + ')\\s*\\)\\s*/\\s*\\(', 'g'), '$1/(');
+    s = s.replace(new RegExp('\\)\\s*/\\s*\\(\\s*(' + fracAtomic + ')\\s*\\)', 'g'), ')/$1');
+
     s = s.replace(/\blog\s+([a-zA-Z_][a-zA-Z0-9_]*)\b/g, 'log($1)');
     return s.replace(/\s+/g, ' ').trim();
   }

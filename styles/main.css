@@ -137,7 +137,7 @@ textarea::placeholder { color:var(--text3); }
 .m2s-input-color {
   position:absolute;
   inset:0;
-  padding:10px 12px;
+  padding:10px 34px 10px 12px;
   border:1px solid var(--border);
   border-radius:8px;
   background:var(--bg3);
@@ -153,6 +153,7 @@ textarea::placeholder { color:var(--text3); }
 
 .m2s-input-wrap #m2s-input {
   position:relative;
+  padding-right:34px;
   background:transparent;
   color:transparent;
   caret-color:var(--text);
@@ -175,7 +176,11 @@ textarea::placeholder { color:var(--text3); }
   overflow-x:auto;
   display:flex;
   align-items:center;
-  justify-content:center;
+  justify-content:flex-start;
+}
+
+.eq-output .katex-display {
+  text-align:left !important;
 }
 
 .eq-ph { color:var(--text3); font-size:12px; font-family:var(--mono); }
@@ -185,23 +190,52 @@ textarea::placeholder { color:var(--text3); }
 .legend-item { font-size:11px; font-family:var(--mono); font-weight:500; padding:2px 8px; border-radius:5px; border:1px solid; }
 
 .mq-wrap {
+  position:relative;
   border:1px solid var(--border);
   border-radius:8px;
   background:var(--bg3);
-  padding:12px 14px;
+  padding:12px 34px 12px 14px;
   min-height:52px;
   cursor:text;
   display:flex;
   align-items:center;
+  overflow-x:auto;
+  overflow-y:hidden;
   transition:border-color 0.15s;
 }
 
 .mq-wrap:focus-within { border-color:var(--accent); }
-.mq-editable-field { width:100%; background:transparent !important; border:none !important; box-shadow:none !important; font-size:1.2em; }
+.mq-editable-field { width:max-content; min-width:100%; background:transparent !important; border:none !important; box-shadow:none !important; font-size:1.2em; white-space:nowrap; }
+.mq-editable-field .mq-root-block { white-space:nowrap; }
 .mq-editable-field .mq-cursor { border-color:var(--text) !important; }
 .mq-math-mode,.mq-math-mode .mq-root-block,.mq-math-mode * { color:var(--text); }
 .mq-math-mode .mq-fraction .mq-numerator,.mq-math-mode .mq-fraction .mq-denominator { border-color:var(--text2) !important; }
 .mq-selection { background:rgba(79,142,247,0.2) !important; }
+
+.clear-btn {
+  width:18px;
+  height:18px;
+  border:1px solid var(--border2);
+  border-radius:999px;
+  background:transparent;
+  color:var(--text3);
+  font-size:11px;
+  line-height:1;
+  cursor:pointer;
+  padding:0;
+}
+
+.clear-btn-in-field {
+  position:absolute;
+  right:8px;
+  top:8px;
+  z-index:3;
+}
+
+.clear-btn:hover {
+  border-color:#f87171;
+  color:#f87171;
+}
 
 .hint { font-size:11px; color:var(--text3); font-family:var(--mono); margin-top:8px; line-height:1.8; }
 .hint code { background:var(--bg); padding:1px 5px; border-radius:4px; color:var(--text2); font-size:11px; }
