@@ -5,11 +5,11 @@ function EqTool()
 % |--------------------------------|------------------------------------------------|
 % |              `/`               | Fraction                                       |
 % |              `^`               | Superscript                                    |
-% |            `\sqrt`             | Radical                                        |
+% |              `_`               | Subscript                                      |
+% |   `\sqrt`,`\cbrt`,`\nthroot`   | Radical                                        |
 % |   `\rho`, `\theta`, `\Delta`   | Greek letters                                  |
 % | `\sin`, `\cos`, `\log`, `\exp` | Function names (auto-recognized operators)     |
 % |            `{abc}`             | Keep multiple characters as one variable token |
-
     toolDir   = fileparts(mfilename('fullpath'));
     srcFile   = fullfile(toolDir, 'matlab_equation_tool.html');
     % Write bundled file to a versioned userpath folder (always writable, even in read-only install dirs).
