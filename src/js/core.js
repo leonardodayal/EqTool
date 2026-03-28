@@ -52,7 +52,7 @@
     // Function and layout commands used in editor typing.
     'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'sinh', 'cosh', 'tanh',
     'asin', 'acos', 'atan', 'acot', 'asec', 'acsc', 'asinh', 'acosh', 'atanh',
-    'arcsin', 'arccos', 'arctan', 'exp', 'log', 'ln', 'sqrt', 'abs', 'floor', 'ceil',
+    'arcsin', 'arccos', 'arctan', 'exp', 'log', 'ln', 'sqrt', 'cbrt', 'abs', 'floor', 'ceil',
     'left', 'right', 'cdot', 'times', 'frac', 'operatorname', 'text', 'mathrm',
     // Compatibility aliases supported by parser rewrites.
     'arcsec', 'arccsc', 'arccot'
@@ -773,6 +773,20 @@
     return -1;
   }
 
+  function findMatchingParen(str, openPos) {
+    if (str[openPos] !== '(') return -1;
+    let depth = 0;
+    for (let i = openPos; i < str.length; i += 1) {
+      if (str[i] === '(') {
+        depth += 1;
+      } else if (str[i] === ')') {
+        depth -= 1;
+        if (depth === 0) return i;
+      }
+    }
+    return -1;
+  }
+
   function l2m(src) {
     let s = src.trim();
     let prot = { text: s, saved: [] };
@@ -849,6 +863,20 @@
 
     s = s.replace(/\\cdot\s*/g, '*').replace(/\\times\s*/g, '*');
 
+    // Support \cbrt as an alias that maps to indexed square root.
+    s = s
+      .replace(/\\operatorname\{cbrt\}/g, '\\cbrt')
+      .replace(/\\text\{cbrt\}/g, '\\cbrt')
+      .replace(/\\mathrm\{cbrt\}/g, '\\cbrt')
+      .replace(/\\cbrt\s*\\left\(([^()]*)\\right\)/g, '\\sqrt[3]{$1}')
+      .replace(/\\cbrt\s*\(([^()]*)\)/g, '\\sqrt[3]{$1}')
+      .replace(/\\cbrt\s*\{([^{}]+)\}/g, '\\sqrt[3]{$1}')
+      .replace(/\\cbrt\s*([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/g, '\\sqrt[3]{$1}')
+      .replace(/\\cbrt\b/g, '\\sqrt[3]')
+      .replace(/\bcbrt\s*\(([^()]*)\)/g, '\\sqrt[3]{$1}')
+      .replace(/\bcbrt\s*\{([^{}]+)\}/g, '\\sqrt[3]{$1}')
+      .replace(/\bcbrt\s*([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/g, '\\sqrt[3]{$1}');
+
     s = exFrac(s);
     
     // Handle \sqrt[n]{arg} and \sqrt{arg} with proper nested brace matching
@@ -861,6 +889,19 @@
       if (match) {
         const openPos = match.index + match[0].length - 1;
         const closePos = findMatchingBrace(s, openPos);
+        if (closePos !== -1) {
+          const n = match[1];
+          const inner = s.substring(openPos + 1, closePos);
+          s = s.substring(0, match.index) + 'nthroot(' + l2m(inner) + ',' + l2m(n) + ')' + s.substring(closePos + 1);
+          changed = true;
+          continue;
+        }
+      }
+      // Handle \sqrt[n](...) form (e.g. from normalized cbrt aliases).
+      match = s.match(/\\sqrt\[([^\]]+)\]\(/);
+      if (match) {
+        const openPos = match.index + match[0].length - 1;
+        const closePos = findMatchingParen(s, openPos);
         if (closePos !== -1) {
           const n = match[1];
           const inner = s.substring(openPos + 1, closePos);
@@ -1398,7 +1439,13 @@
   function cleanLatexForCopy(latex) {
     return latex
       .replace(/\\textcolor\{[^}]*\}\{([^}]*)\}/g, '$1')
-      .replace(/\\dfrac/g, '\\frac');
+      .replace(/\\dfrac/g, '\\frac')
+      .replace(/\\(?:Bigg|bigg|Big|big)\(/g, '\\left(')
+      .replace(/\\(?:Bigg|bigg|Big|big)\)/g, '\\right)')
+      .replace(/\\(?:Bigg|bigg|Big|big)\[/g, '\\left[')
+      .replace(/\\(?:Bigg|bigg|Big|big)\]/g, '\\right]')
+      .replace(/\\(?:Bigg|bigg|Big|big)\{/g, '\\left\\{')
+      .replace(/\\(?:Bigg|bigg|Big|big)\}/g, '\\right\\}');
   }
 
   return {

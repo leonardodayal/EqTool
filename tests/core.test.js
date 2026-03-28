@@ -302,6 +302,31 @@ test('l2m handles indexed square root form', () => {
   assert.equal(code, 'nthroot(4,1)');
 });
 
+test('l2m converts cbrt braced input to nthroot with index 3', () => {
+  const code = core.l2m('\\cbrt{x}');
+  assert.equal(code, 'nthroot(x,3)');
+});
+
+test('l2m converts cbrt parenthesized input to nthroot with index 3', () => {
+  const code = core.l2m('\\cbrt\\left(x+1\\right)');
+  assert.equal(code, 'nthroot(x+1,3)');
+});
+
+test('l2m converts plain cbrt token to nthroot with index 3', () => {
+  const code = core.l2m('cbrt(x+1)');
+  assert.equal(code, 'nthroot(x+1,3)');
+});
+
+test('l2m converts operatorname cbrt token to nthroot with index 3', () => {
+  const code = core.l2m('\\operatorname{cbrt}(x+1)');
+  assert.equal(code, 'nthroot(x+1,3)');
+});
+
+test('l2m converts text cbrt token to nthroot with index 3', () => {
+  const code = core.l2m('\\text{cbrt}\\left(x\\right)');
+  assert.equal(code, 'nthroot(x,3)');
+});
+
 test('l2m handles deeply nested square root expressions', () => {
   const code = core.l2m('\\left(\\sqrt{\\sqrt{\\sqrt{x}}}\\right)');
   assert.equal(code, '(sqrt(sqrt(sqrt(x))))');
@@ -599,6 +624,16 @@ test('vectorize inserts dot operators', () => {
 test('cleanLatexForCopy removes textcolor and dfrac', () => {
   const out = core.cleanLatexForCopy('\\textcolor{#fff}{x}+\\dfrac{1}{2}');
   assert.equal(out, 'x+\\frac{1}{2}');
+});
+
+test('cleanLatexForCopy normalizes sized parentheses to left/right delimiters', () => {
+  const out = core.cleanLatexForCopy('\\Bigg(x+1\\Bigg) + \\bigg(y\\bigg)');
+  assert.equal(out, '\\left(x+1\\right) + \\left(y\\right)');
+});
+
+test('cleanLatexForCopy normalizes sized brackets to left/right delimiters', () => {
+  const out = core.cleanLatexForCopy('\\Big[z\\Big] + \\big[w\\big]');
+  assert.equal(out, '\\left[z\\right] + \\left[w\\right]');
 });
 
 test('findParenMismatch detects missing closing parenthesis', () => {

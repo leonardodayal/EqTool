@@ -1,12 +1,14 @@
 function EqTool()
 % EqTool - MATLAB Bidirectional Equation Visualizer
 %
-% Launch with:  >> EqTool
-%
-% On first run, dependencies are downloaded and bundled automatically.
-% An internet connection is required for the first run only.
-%
-% Requirements: MATLAB R2020b or later
+% |              Key               |                     Action                     |
+% |--------------------------------|------------------------------------------------|
+% |              `/`               | Fraction                                       |
+% |              `^`               | Superscript                                    |
+% |            `\sqrt`             | Radical                                        |
+% |   `\rho`, `\theta`, `\Delta`   | Greek letters                                  |
+% | `\sin`, `\cos`, `\log`, `\exp` | Function names (auto-recognized operators)     |
+% |            `{abc}`             | Keep multiple characters as one variable token |
 
     toolDir   = fileparts(mfilename('fullpath'));
     srcFile   = fullfile(toolDir, 'matlab_equation_tool.html');
