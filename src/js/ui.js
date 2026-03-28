@@ -19,10 +19,10 @@
   const KNOWN_LATEX_COMMANDS = new Set(
     typeof core.getKnownLatexCommands === 'function'
       ? core.getKnownLatexCommands()
-      : ['sqrt', 'log', 'ln', 'sin', 'cos', 'tan', 'frac', 'left', 'right']
+      : ['sqrt', 'cbrt', 'log', 'ln', 'sin', 'cos', 'tan', 'frac', 'left', 'right']
   );
   const ARG_REQUIRED_TRAILING_COMMANDS = new Set([
-    'sqrt', 'frac', 'left', 'right', 'operatorname', 'text', 'mathrm'
+    'sqrt', 'cbrt', 'frac', 'left', 'right', 'operatorname', 'text', 'mathrm'
   ]);
 
   function byId(id) {
@@ -616,6 +616,42 @@
       .replace(/\blog_([a-zA-Z0-9]+)(?!\{)/g, 'log_{$1}');
   }
 
+  function normalizeCbrtLatex(latex) {
+    if (!latex) {
+      return latex;
+    }
+
+    // Support \cbrt as a convenient alias for indexed square root.
+    // Examples: \cbrt{x} -> \sqrt[3]{x}, \cbrt\left(x\right) -> \sqrt[3]{x}.
+    return latex
+      .replace(/\\operatorname\{cbrt\}/g, '\\cbrt')
+      .replace(/\\text\{cbrt\}/g, '\\cbrt')
+      .replace(/\\mathrm\{cbrt\}/g, '\\cbrt')
+      .replace(/\\cbrt\s*\\left\(([^()]*)\\right\)/g, '\\sqrt[3]{$1}')
+      .replace(/\\cbrt\s*\(([^()]*)\)/g, '\\sqrt[3]{$1}')
+      .replace(/\\cbrt\s*\{([^{}]+)\}/g, '\\sqrt[3]{$1}')
+      .replace(/\\cbrt\s*([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/g, '\\sqrt[3]{$1}')
+      .replace(/\\cbrt\b/g, '\\sqrt[3]')
+      .replace(/\bcbrt\s*\(([^()]*)\)/g, '\\sqrt[3]{$1}')
+      .replace(/\bcbrt\s*\{([^{}]+)\}/g, '\\sqrt[3]{$1}')
+      .replace(/\bcbrt\s*([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+(?:\.[0-9]+)?)/g, '\\sqrt[3]{$1}');
+  }
+
+  function expandBareCbrtToken(latex) {
+    if (!latex) {
+      return latex;
+    }
+
+    // Expand bare cbrt tokens immediately so the editor shows cube-root
+    // structure right away instead of transient text/operator formatting.
+    return latex
+      .replace(/\\operatorname\{cbrt\}(?!\s*(?:\\left\(|\(|\{|\[))/g, '\\sqrt[3]{ }')
+      .replace(/\\text\{cbrt\}(?!\s*(?:\\left\(|\(|\{|\[))/g, '\\sqrt[3]{ }')
+      .replace(/\\mathrm\{cbrt\}(?!\s*(?:\\left\(|\(|\{|\[))/g, '\\sqrt[3]{ }')
+      .replace(/\\cbrt(?!\s*(?:\\left\(|\(|\{|\[))/g, '\\sqrt[3]{ }')
+      .replace(/\bcbrt\b(?!\s*(?:\\left\(|\(|\{|\[))/g, '\\sqrt[3]{ }');
+  }
+
   function toggleVec() {
     state.isVec = !state.isVec;
     const btn = byId('vec-btn');
@@ -685,6 +721,24 @@
     copyText(
       core.cleanLatexForCopy(state.lastLatex),
       byId('sym-copy-btn'),
+      'copied as LaTeX',
+      'copy LaTeX',
+      2000
+    );
+  }
+
+  function copyS2MLatex() {
+    if (!state.mqField) {
+      return;
+    }
+    const rawLatex = (state.mqField.latex() || '').trim();
+    if (!rawLatex) {
+      return;
+    }
+    const normalized = core.autoSubscriptVariableNumbers(normalizeCbrtLatex(core.normalizeParenLatex(rawLatex)));
+    copyText(
+      core.cleanLatexForCopy(normalized),
+      byId('s2m-latex-copy-btn'),
       'copied as LaTeX',
       'copy LaTeX',
       2000
@@ -770,8 +824,8 @@
     const MQ = MathQuill.getInterface(2);
     state.mqField = MQ.MathField(byId('mq-field'), {
       spaceBehavesLikeTab: true,
-      autoCommands: 'pi theta rho sqrt',
-      autoOperatorNames: 'sin cos tan cot sec csc sinh cosh tanh asin acos atan acot asec acsc asinh acosh atanh exp log ln sqrt abs floor ceil',
+      autoCommands: 'pi theta rho sqrt cbrt',
+      autoOperatorNames: 'sin cos tan cot sec csc sinh cosh tanh asin acos atan acot asec acsc asinh acosh atanh exp log ln sqrt cbrt abs floor ceil',
       handlers: {
         edit: function () {
           if (state.isNormalizingEdit) {
@@ -779,6 +833,16 @@
           }
           try {
             const rawLatex = state.mqField.latex();
+            const cbrtExpanded = expandBareCbrtToken(rawLatex);
+            if (cbrtExpanded !== rawLatex) {
+              state.isNormalizingEdit = true;
+              const cbrtOk = safeSetMathFieldLatex(cbrtExpanded);
+              state.isNormalizingEdit = false;
+              renderS2M(cbrtOk ? cbrtExpanded : rawLatex);
+              requestAnimationFrame(ensureMqCursorVisible);
+              return;
+            }
+
             const incomplete = hasIncompleteLatexCommand(rawLatex);
             setS2MIncompleteState(incomplete);
 
@@ -793,7 +857,7 @@
             }
 
             const repairedLatex = repairLikelyCommandGlitches(rawLatex);
-            const normalized = core.normalizeParenLatex(repairedLatex);
+            const normalized = core.autoSubscriptVariableNumbers(normalizeCbrtLatex(core.normalizeParenLatex(repairedLatex)));
             if (normalized !== rawLatex) {
               state.isNormalizingEdit = true;
               const ok = safeSetMathFieldLatex(normalized);
@@ -835,7 +899,7 @@
       }
 
       evt.preventDefault();
-      const normalized = core.normalizeParenLatex(pasted);
+      const normalized = core.autoSubscriptVariableNumbers(normalizeCbrtLatex(core.normalizeParenLatex(pasted)));
       // Insert at cursor position instead of replacing entire field
       try {
         state.mqField.write(normalized);
@@ -905,6 +969,7 @@
       }
     });
     byId('sym-copy-btn').addEventListener('click', copyLatex);
+    byId('s2m-latex-copy-btn').addEventListener('click', copyS2MLatex);
     byId('vec-btn').addEventListener('click', toggleVec);
     byId('copy-btn').addEventListener('click', copyCode);
     byId('m2s-paren-warn').addEventListener('click', function (evt) {
